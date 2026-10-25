@@ -1,0 +1,23 @@
+{
+  "name": "usa-auto-care-workshop-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack MERN Vehicle Service and Repair Workshop Management System for USA Auto Care (Alawwa, Sri Lanka)",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -n SERVER,CLIENT -c blue,red \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "start": "NODE_ENV=production npm --prefix server start",
+    "create-admin": "npm --prefix server run create-admin",
+    "seed:dev": "npm --prefix server run seed:dev",
+    "test": "npm --prefix server test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

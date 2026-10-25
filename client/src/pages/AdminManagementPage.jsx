@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '../lib/apiClient.js';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog.jsx';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
 import { Trash2 } from 'lucide-react';
 
 const recordTypes = [
@@ -300,25 +301,35 @@ export function AdminManagementPage() {
                       </span>
                     </td>
                     <td className="p-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMessage(null);
-                          archiveRecord.reset();
-                          setDialog({
-                            kind: 'record',
-                            id: record._id,
-                            name: record.label || 'this record',
-                            isArchived: !record.isArchived,
-                          });
-                        }}
-                        className={`inline-flex items-center gap-1 text-xs font-semibold hover:underline ${
-                          record.isArchived ? 'text-emerald-700' : 'text-rose-700'
-                        }`}
-                      >
-                        {record.isArchived ? null : <Trash2 className="h-4 w-4" />}
-                        {record.isArchived ? 'Restore' : 'Archive'}
-                      </button>
+                      <div className="inline-flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMessage(null);
+                            archiveRecord.reset();
+                            setDialog({
+                              kind: 'record',
+                              id: record._id,
+                              name: record.label || 'this record',
+                              isArchived: !record.isArchived,
+                            });
+                          }}
+                          className={`inline-flex items-center gap-1 text-xs font-semibold hover:underline ${
+                            record.isArchived ? 'text-emerald-700' : 'text-rose-700'
+                          }`}
+                        >
+                          {record.isArchived ? null : <Trash2 className="h-4 w-4" />}
+                          {record.isArchived ? 'Restore' : 'Archive'}
+                        </button>
+                        {recordType !== 'expenses' && (
+                          <AdminRecordAction
+                            recordType={recordType}
+                            recordId={record._id}
+                            recordLabel={`${recordTypes.find((type) => type.value === recordType)?.label || 'record'} ${record.label || record._id}`}
+                            compact
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -1,24 +1,28 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2 } from 'lucide-react';
+import { Archive, Trash2 } from 'lucide-react';
 import { apiRequest } from '../lib/apiClient.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PasswordConfirmDialog } from './PasswordConfirmDialog.jsx';
 
-export function AdminRecordAction({ recordType, recordId, recordLabel, onArchived, compact = false }) {
+export function AdminRecordAction({ recordType, recordId, recordLabel, onDeleted, archiveOnly = false, compact = false }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const archiveRecord = useMutation({
-    mutationFn: (password) =>
-      apiRequest(`/api/admin/records/${recordType}/${recordId}/archive`, {
-        method: 'PATCH',
-        body: { password, isArchived: true },
-      }),
+    mutationFn: (password) => archiveOnly
+      ? apiRequest(`/api/admin/records/${recordType}/${recordId}/archive`, {
+          method: 'PATCH',
+          body: { password, isArchived: true },
+        })
+      : apiRequest(`/api/admin/records/${recordType}/${recordId}`, {
+          method: 'DELETE',
+          body: { password },
+        }),
     onSuccess: async () => {
       setDialogOpen(false);
-      onArchived?.();
+      onDeleted?.();
       await queryClient.invalidateQueries();
     },
   });
@@ -29,8 +33,8 @@ export function AdminRecordAction({ recordType, recordId, recordLabel, onArchive
     <>
       <button
         type="button"
-        title="Delete from active lists (preserve linked history)"
-        aria-label={`Delete ${recordLabel || 'record'} (archive and keep history)`}
+        title={archiveOnly ? 'Archive and preserve this record' : 'Permanently delete this record'}
+        aria-label={`${archiveOnly ? 'Archive' : 'Permanently delete'} ${recordLabel || 'record'}`}
         onClick={(event) => {
           event.stopPropagation();
           archiveRecord.reset();
@@ -40,14 +44,16 @@ export function AdminRecordAction({ recordType, recordId, recordLabel, onArchive
           compact ? 'p-1.5' : 'px-2 py-1 text-xs font-semibold'
         }`}
       >
-        <Trash2 className="h-4 w-4" />
-        {!compact && <span>Delete</span>}
+        {archiveOnly ? <Archive className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+        {!compact && <span>{archiveOnly ? 'Archive' : 'Delete'}</span>}
       </button>
       {dialogOpen && (
         <PasswordConfirmDialog
-          title="Delete this record?"
-          message={`Remove ${recordLabel || 'this record'} from normal work lists? Its linked service and financial history will be preserved.`}
-          actionLabel="Delete Record"
+          title={archiveOnly ? 'Archive this record?' : 'Permanently delete this record?'}
+          message={archiveOnly
+            ? `Hide ${recordLabel || 'this record'} from active lists? The record remains in MongoDB and can be restored.`
+            : `Permanently remove ${recordLabel || 'this record'} from MongoDB? This cannot be undone. Records linked to protected history cannot be deleted.`}
+          actionLabel={archiveOnly ? 'Archive Record' : 'Delete Permanently'}
           error={archiveRecord.error?.message}
           isPending={archiveRecord.isPending}
           onCancel={() => setDialogOpen(false)}

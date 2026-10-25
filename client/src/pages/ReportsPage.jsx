@@ -154,6 +154,7 @@ export function ReportsPage() {
                         recordType="expenses"
                         recordId={e._id}
                         recordLabel={`expense ${e.category}`}
+                        archiveOnly
                         compact
                       />
                     </td>

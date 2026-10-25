@@ -6,10 +6,13 @@ import { Vehicle } from '../models/Vehicle.js';
 import { Appointment } from '../models/Appointment.js';
 import { JobCard } from '../models/JobCard.js';
 import { Estimate } from '../models/Estimate.js';
+import { Invoice } from '../models/Invoice.js';
 import { Part } from '../models/Part.js';
+import { Payment } from '../models/Payment.js';
 import { Supplier } from '../models/Supplier.js';
 import { Expense } from '../models/Expense.js';
 import { Reminder } from '../models/Reminder.js';
+import { StockMovement } from '../models/StockMovement.js';
 import {
   adminPasswordLimiter,
   requireAdminPassword,
@@ -34,6 +37,66 @@ const archivableRecords = {
   expenses: { model: Expense, label: 'Expenses', fields: ['category', 'notes'] },
   reminders: { model: Reminder, label: 'Service reminders', fields: ['serviceType', 'status'] },
 };
+
+const deletionReferences = {
+  customers: [
+    { model: Vehicle, filter: (id) => ({ customer: id }), label: 'vehicles' },
+    { model: Appointment, filter: (id) => ({ customer: id }), label: 'appointments' },
+    { model: JobCard, filter: (id) => ({ customer: id }), label: 'job cards' },
+    { model: Estimate, filter: (id) => ({ customer: id }), label: 'estimates' },
+    { model: Invoice, filter: (id) => ({ customer: id }), label: 'invoices' },
+    { model: Payment, filter: (id) => ({ customer: id }), label: 'payments' },
+    { model: Reminder, filter: (id) => ({ customer: id }), label: 'service reminders' },
+  ],
+  vehicles: [
+    { model: Appointment, filter: (id) => ({ vehicle: id }), label: 'appointments' },
+    { model: JobCard, filter: (id) => ({ vehicle: id }), label: 'job cards' },
+    { model: Estimate, filter: (id) => ({ vehicle: id }), label: 'estimates' },
+    { model: Invoice, filter: (id) => ({ vehicle: id }), label: 'invoices' },
+    { model: Reminder, filter: (id) => ({ vehicle: id }), label: 'service reminders' },
+  ],
+  appointments: [
+    { model: JobCard, filter: (id) => ({ appointment: id }), label: 'job cards' },
+  ],
+  jobCards: [
+    { model: Appointment, filter: (id) => ({ convertedJobCard: id }), label: 'converted appointments' },
+    { model: Estimate, filter: (id) => ({ jobCard: id }), label: 'estimates' },
+    { model: Invoice, filter: (id) => ({ jobCard: id }), label: 'invoices' },
+    { model: Reminder, filter: (id) => ({ jobCard: id }), label: 'service reminders' },
+    { model: StockMovement, filter: (id) => ({ jobCard: id }), label: 'stock movements' },
+  ],
+  estimates: [
+    { model: Invoice, filter: (id) => ({ estimate: id }), label: 'invoices' },
+  ],
+  parts: [
+    { model: StockMovement, filter: (id) => ({ part: id }), label: 'stock movements' },
+    { model: JobCard, filter: (id) => ({ 'issuedParts.part': id }), label: 'job card part records' },
+    { model: Estimate, filter: (id) => ({ 'parts.part': id }), label: 'estimate part records' },
+    { model: Invoice, filter: (id) => ({ 'parts.part': id }), label: 'invoice part records' },
+  ],
+  suppliers: [
+    { model: Part, filter: (id) => ({ supplier: id }), label: 'inventory parts' },
+    { model: StockMovement, filter: (id) => ({ supplier: id }), label: 'stock movements' },
+  ],
+};
+
+async function findDeletionBlocker(recordType, target, session) {
+  if (recordType === 'customers' && target.depositBalanceMinor > 0) {
+    return 'This customer has an outstanding deposit balance.';
+  }
+  if (recordType === 'parts' && target.quantityOnHand > 0) {
+    return 'This part still has stock on hand. Adjust the stock to zero before deleting it.';
+  }
+  if (recordType === 'estimates' && target.status === 'Approved') {
+    return 'Approved estimates are part of the customer approval history and cannot be permanently deleted.';
+  }
+
+  for (const reference of deletionReferences[recordType] || []) {
+    const exists = await reference.model.exists(reference.filter(target._id)).session(session);
+    if (exists) return `This record is linked to ${reference.label}; those records must be preserved.`;
+  }
+  return null;
+}
 
 router.get(
   '/records',
@@ -127,6 +190,68 @@ router.patch(
 
       emitDomainEvent(req.params.type, req.body.isArchived ? 'archived' : 'restored', { id: record._id });
       return res.json({ message: req.body.isArchived ? 'Record archived.' : 'Record restored.' });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.delete(
+  '/records/:type/:id',
+  requireAuth,
+  verifyCsrf,
+  requirePermission('MANAGE_SETTINGS_AND_STAFF'),
+  adminPasswordLimiter,
+  requireAdminPassword,
+  async (req, res, next) => {
+    try {
+      if (!Object.hasOwn(deletionReferences, req.params.type)) {
+        return res.status(400).json({
+          message: 'This record category cannot be permanently deleted. Financial records and protected history must be archived or corrected using their designated workflows.',
+        });
+      }
+      if (!/^[a-f\d]{24}$/i.test(req.params.id)) {
+        return res.status(400).json({ message: 'Enter a valid record ID.' });
+      }
+
+      const recordType = archivableRecords[req.params.type];
+      const deletedRecord = await withTransaction(async (session) => {
+        const target = await recordType.model.findById(req.params.id).session(session);
+        if (!target) {
+          const error = new Error('Record not found. It may already have been deleted.');
+          error.statusCode = 404;
+          throw error;
+        }
+
+        const blocker = await findDeletionBlocker(req.params.type, target, session);
+        if (blocker) {
+          const error = new Error(blocker);
+          error.statusCode = 409;
+          error.code = 'RECORD_HAS_LINKED_HISTORY';
+          throw error;
+        }
+
+        const deletedId = String(target._id);
+        const summary = `${recordType.label} record permanently deleted`;
+        await target.deleteOne({ session });
+        await AuditLog.create(
+          [{
+            action: 'RECORD_DELETED',
+            entityType: recordType.model.modelName,
+            entityId: deletedId,
+            summary,
+            metadata: { recordType: req.params.type },
+            performedBy: req.user._id,
+            performedByName: req.user.name,
+            performedByRole: req.user.role,
+          }],
+          { session }
+        );
+        return { id: deletedId };
+      });
+
+      emitDomainEvent(req.params.type, 'deleted', { id: deletedRecord.id });
+      return res.json({ message: 'Record permanently deleted from MongoDB.', id: deletedRecord.id });
     } catch (err) {
       return next(err);
     }

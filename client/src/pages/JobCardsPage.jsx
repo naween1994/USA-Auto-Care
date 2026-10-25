@@ -129,7 +129,7 @@ export function JobCardsPage() {
                       recordId={j._id}
                       recordLabel={`job card ${j.jobNumber}`}
                       compact
-                      onArchived={() => {
+                      onDeleted={() => {
                         if (selectedJobId === j._id) setSelectedJobId(null);
                       }}
                     />

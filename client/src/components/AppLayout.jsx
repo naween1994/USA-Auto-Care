@@ -213,7 +213,7 @@ export function AppLayout() {
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-extrabold text-slate-900">USA Auto Care ERP</h1>
+                <h1 className="text-sm font-extrabold text-slate-900">USA Auto Care</h1>
                 <span className="hidden sm:inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   Alawwa, Sri Lanka
                 </span>

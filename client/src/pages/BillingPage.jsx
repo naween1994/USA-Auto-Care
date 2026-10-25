@@ -237,7 +237,7 @@ export function BillingPage() {
             <div>
               <img src="/logo.png" alt="USA Auto Care Logo" className="h-14 w-auto object-contain mb-2" />
               <h1 className="text-2xl font-bold text-navy-900">{inv.businessSnapshot?.businessName || 'USA Auto Care'}</h1>
-              <p className="text-xs text-slate-600">Hotlines: 0773995399 / 0703995399 • Email: usaautocare66@gmail.com</p>
+              <p className="text-xs text-slate-600">Email: usaautocare66@gmail.com</p>
               <p className="text-xs text-slate-600">{inv.businessSnapshot?.location || 'Alawwa, Sri Lanka'}</p>
               {inv.businessSnapshot?.address && <p className="text-xs text-slate-600">{inv.businessSnapshot.address}</p>}
               {inv.businessSnapshot?.phone && <p className="text-xs text-slate-600">Tel: {inv.businessSnapshot.phone}</p>}
@@ -246,7 +246,7 @@ export function BillingPage() {
               )}
             </div>
             <div className="text-right">
-              <h2 className="text-lg font-bold uppercase text-brandRed-600">Tax / Service Invoice</h2>
+              <h2 className="text-lg font-bold uppercase text-brandRed-600">Service Invoice</h2>
               <p className="text-sm font-mono font-bold">{inv.invoiceNumber}</p>
               {inv.estimateNumber && (
                 <p className="text-xs text-slate-500">

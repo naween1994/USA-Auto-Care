@@ -13,6 +13,8 @@ import {
   BellRing,
   BarChart3,
   Settings,
+  UserCog,
+  UserRound,
   LogOut,
   Wifi,
   WifiOff,
@@ -28,7 +30,22 @@ export function AppLayout() {
   const { user, logout, lang, setLang, t } = useAuth();
   const { isConnected } = useSocketSync(user);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
   const navigate = useNavigate();
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    setLogoutError('');
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      setLogoutError(error.message || 'Sign out failed. Please try again.');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
 
   const mainNavItems = [
     { to: '/', label: t.nav.dashboard, icon: LayoutDashboard, roles: ['admin', 'receptionist', 'mechanic', 'cashier'] },
@@ -45,7 +62,9 @@ export function AppLayout() {
     { to: '/billing', label: t.nav.billing, icon: Receipt, roles: ['admin', 'cashier', 'receptionist'] },
     { to: '/reminders', label: t.nav.reminders, icon: BellRing, roles: ['admin', 'receptionist'] },
     { to: '/reports', label: t.nav.reports, icon: BarChart3, roles: ['admin', 'cashier'] },
+    { to: '/admin', label: t.nav.userManagement, icon: UserCog, roles: ['admin'] },
     { to: '/settings', label: t.nav.settings, icon: Settings, roles: ['admin'] },
+    { to: '/account', label: t.nav.account, icon: UserRound, roles: ['admin', 'receptionist', 'mechanic', 'cashier'] },
   ].filter((item) => item.roles.includes(user?.role));
 
   function renderNavItems(items) {
@@ -81,8 +100,8 @@ export function AppLayout() {
       >
         <div className="p-4 border-b border-slate-800/90 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="bg-white rounded-xl p-1.5 shadow-sm border border-blue-500/20 shrink-0">
-              <img src="/logo.jpeg" alt="USA Auto Care Logo" className="h-8 w-auto object-contain" />
+            <div className="rounded-xl p-1.5 shrink-0">
+              <img src="/logo-dark.png" alt="USA Auto Care Logo" className="h-8 w-auto object-contain" />
             </div>
             <div className="min-w-0">
               <span className="block font-extrabold text-sm tracking-tight text-white">{t.businessName}</span>
@@ -136,11 +155,12 @@ export function AppLayout() {
           </div>
           <button
             type="button"
-            onClick={logout}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
             className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-semibold"
           >
             <LogOut className="w-3.5 h-3.5 text-red-400" />
-            Sign Out
+            {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
           </button>
         </div>
 
@@ -155,16 +175,22 @@ export function AppLayout() {
           </button>
           <button
             type="button"
-            onClick={logout}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
             className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-slate-800 text-xs text-slate-200 font-semibold"
           >
             <LogOut className="w-3.5 h-3.5 text-red-400" />
-            Sign Out
+            {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
           </button>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
+        {logoutError && (
+          <div role="alert" className="no-print bg-rose-700 px-4 py-2 text-center text-xs font-semibold text-white">
+            {logoutError}
+          </div>
+        )}
         {!isConnected && (
           <div
             role="alert"

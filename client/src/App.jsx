@@ -16,6 +16,8 @@ import { BillingPage } from './pages/BillingPage.jsx';
 import { RemindersPage } from './pages/RemindersPage.jsx';
 import { ReportsPage } from './pages/ReportsPage.jsx';
 import { SettingsPage } from './pages/SettingsPage.jsx';
+import { AdminManagementPage } from './pages/AdminManagementPage.jsx';
+import { AccountPage } from './pages/AccountPage.jsx';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,11 +63,20 @@ export default function App() {
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="reminders" element={<RemindersPage />} />
+              <Route path="account" element={<AccountPage />} />
               <Route
                 path="reports"
                 element={
                   <ProtectedRoute allowedRoles={['admin', 'cashier']}>
                     <ReportsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminManagementPage />
                   </ProtectedRoute>
                 }
               />

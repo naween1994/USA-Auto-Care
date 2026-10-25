@@ -235,7 +235,7 @@ export function BillingPage() {
           {/* Printable A4 Header */}
           <div className="flex justify-between items-start border-b-2 border-navy-900 pb-4">
             <div>
-              <img src="/logo.jpeg" alt="USA Auto Care Logo" className="h-14 w-auto object-contain mb-2" />
+              <img src="/logo.png" alt="USA Auto Care Logo" className="h-14 w-auto object-contain mb-2" />
               <h1 className="text-2xl font-bold text-navy-900">{inv.businessSnapshot?.businessName || 'USA Auto Care'}</h1>
               <p className="text-xs text-slate-600">Hotlines: 0773995399 / 0703995399 • Email: usaautocare66@gmail.com</p>
               <p className="text-xs text-slate-600">{inv.businessSnapshot?.location || 'Alawwa, Sri Lanka'}</p>

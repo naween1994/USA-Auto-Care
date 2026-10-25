@@ -86,6 +86,7 @@ const estimateSchema = new mongoose.Schema(
     },
     revisions: { type: [estimateRevisionSchema], default: [] },
     notes: { type: String, trim: true, default: '' },
+    isArchived: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, optimisticConcurrency: true }
 );

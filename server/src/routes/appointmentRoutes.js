@@ -14,7 +14,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     const status = req.query.status;
     const date = req.query.date;
 
-    const query = {};
+    const query = { isArchived: { $ne: true } };
     if (status) query.status = status;
     if (date) {
       const start = new Date(`${date}T00:00:00.000+05:30`);

@@ -39,15 +39,17 @@ router.get('/', requireAuth, async (req, res, next) => {
       recentActivity,
     ] = await Promise.all([
       Appointment.countDocuments({
+        isArchived: { $ne: true },
         scheduledAt: { $gte: startOfDay, $lte: endOfDay },
         status: { $nin: ['Cancelled'] },
       }),
-      JobCard.countDocuments({ status: { $in: activeWorkshopStatuses } }),
-      JobCard.countDocuments({ status: 'Awaiting Approval' }),
-      JobCard.countDocuments({ status: 'Waiting for Parts' }),
-      JobCard.countDocuments({ status: 'Ready for Collection' }),
+      JobCard.countDocuments({ isArchived: { $ne: true }, status: { $in: activeWorkshopStatuses } }),
+      JobCard.countDocuments({ isArchived: { $ne: true }, status: 'Awaiting Approval' }),
+      JobCard.countDocuments({ isArchived: { $ne: true }, status: 'Waiting for Parts' }),
+      JobCard.countDocuments({ isArchived: { $ne: true }, status: 'Ready for Collection' }),
       Part.find({
         isActive: true,
+        isArchived: { $ne: true },
         $expr: { $lte: ['$quantityOnHand', '$reorderThreshold'] },
       })
         .select('sku name category quantityOnHand reorderThreshold unit')

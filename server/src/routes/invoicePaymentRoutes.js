@@ -84,6 +84,7 @@ router.post(
         const approvedEstimates = await Estimate.find({
           jobCard: job._id,
           status: 'Approved',
+          isArchived: { $ne: true },
         })
           .sort({ 'approvalDetails.approvedAt': -1 })
           .session(session);

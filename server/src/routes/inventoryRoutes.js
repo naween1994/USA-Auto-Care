@@ -17,7 +17,7 @@ router.get('/parts', requireAuth, async (req, res, next) => {
     const category = req.query.category;
     const lowStockOnly = req.query.lowStock === 'true';
 
-    const query = { isActive: true };
+    const query = { isActive: true, isArchived: { $ne: true } };
     if (category) query.category = category;
     if (lowStockOnly) {
       query.$expr = { $lte: ['$quantityOnHand', '$reorderThreshold'] };
@@ -242,7 +242,7 @@ router.get('/movements', requireAuth, requirePermission('MANAGE_INVENTORY_STOCK'
 // Suppliers CRUD
 router.get('/suppliers', requireAuth, async (_req, res, next) => {
   try {
-    const suppliers = await Supplier.find({ isActive: true }).sort({ name: 1 }).lean();
+    const suppliers = await Supplier.find({ isActive: true, isArchived: { $ne: true } }).sort({ name: 1 }).lean();
     return res.json({ data: suppliers });
   } catch (err) {
     return next(err);

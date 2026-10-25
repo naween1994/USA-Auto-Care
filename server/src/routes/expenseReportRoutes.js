@@ -14,7 +14,7 @@ const router = express.Router();
 
 router.get('/expenses', requireAuth, requirePermission('MANAGE_EXPENSES'), async (req, res, next) => {
   try {
-    const query = {};
+    const query = { isArchived: { $ne: true } };
     if (req.query.from || req.query.to) {
       query.incurredOn = {};
       if (req.query.from) query.incurredOn.$gte = new Date(req.query.from);

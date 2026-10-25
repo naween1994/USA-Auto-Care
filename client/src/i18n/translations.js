@@ -18,7 +18,9 @@ export const translations = {
       billing: 'Invoices & Payments',
       reminders: 'Service Reminders',
       reports: 'Expenses & Reports',
+      userManagement: 'User Management',
       settings: 'Settings & Audit Log',
+      account: 'My Account',
     },
     common: {
       save: 'Save Changes',
@@ -44,7 +46,9 @@ export const translations = {
       billing: 'ඉන්වොයිසි සහ ගෙවීම්',
       reminders: 'සේවා සිහිකැඳවීම්',
       reports: 'වියදම් සහ වාර්තා',
+      userManagement: 'පරිශීලක කළමනාකරණය',
       settings: 'සැකසුම් සහ විගණන සටහන්',
+      account: 'මගේ ගිණුම',
     },
     common: {
       save: 'සුරකින්න',

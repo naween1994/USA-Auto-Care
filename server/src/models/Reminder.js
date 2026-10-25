@@ -18,6 +18,7 @@ const reminderSchema = new mongoose.Schema(
     contactedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     contactMethod: { type: String, enum: ['Phone Call', 'In-Person', 'Manual SMS/WhatsApp', null], default: null },
     contactNotes: { type: String, trim: true, default: '' },
+    isArchived: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, optimisticConcurrency: true }
 );

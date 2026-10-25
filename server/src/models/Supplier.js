@@ -9,6 +9,7 @@ const supplierSchema = new mongoose.Schema(
     address: { type: String, trim: true, default: '' },
     notes: { type: String, trim: true, default: '' },
     isActive: { type: Boolean, default: true },
+    isArchived: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, optimisticConcurrency: true }
 );

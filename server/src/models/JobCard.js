@@ -121,6 +121,7 @@ const jobCardSchema = new mongoose.Schema(
     nextServiceDate: { type: Date, default: null },
     nextServiceMileageKm: { type: Number, default: null },
     deliveredAt: { type: Date, default: null },
+    isArchived: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, optimisticConcurrency: true }
 );

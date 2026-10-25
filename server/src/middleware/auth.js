@@ -1,10 +1,19 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import { User } from '../models/User.js';
 import { hasPermission } from '../utils/domainLogic.js';
 
 export const TOKEN_COOKIE_NAME = 'usa_autocare_token';
 export const CSRF_COOKIE_NAME = 'usa_autocare_csrf';
+export const adminPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password confirmation attempts. Please wait before retrying.' },
+});
 
 export function signAuthToken(user) {
   return jwt.sign(
@@ -87,6 +96,27 @@ export function requirePermission(permissionKey) {
     }
     return next();
   };
+}
+
+export function requireAdminPassword(req, res, next) {
+  const password = req.body?.password;
+  if (typeof password !== 'string' || password.length === 0) {
+    return res.status(400).json({ message: 'Enter your current password to confirm this action.' });
+  }
+
+  return User.findById(req.user._id)
+    .select('+passwordHash')
+    .then(async (user) => {
+      if (!user || user.role !== 'admin' || !user.isActive) {
+        return res.status(403).json({ message: 'Only an active administrator can confirm this action.' });
+      }
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return res.status(403).json({ message: 'The administrator password is incorrect.' });
+      }
+      return next();
+    })
+    .catch(next);
 }
 
 export function requireRoles(...roles) {

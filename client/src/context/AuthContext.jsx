@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
     queryKey: ['auth', 'me'],
     queryFn: () => apiRequest('/api/auth/me'),
     retry: false,
+    staleTime: Infinity,
   });
 
   const user = data?.user || null;
@@ -28,7 +29,10 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     await apiRequest('/api/auth/logout', { method: 'POST' });
-    queryClient.clear();
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== 'auth',
+    });
+    queryClient.setQueryData(['auth', 'me'], { user: null });
   }
 
   const t = translations[lang] || translations.en;

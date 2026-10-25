@@ -13,6 +13,7 @@ const expenseSchema = new mongoose.Schema(
     vendorName: { type: String, trim: true, default: '' },
     notes: { type: String, required: true, trim: true },
     recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    isArchived: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, optimisticConcurrency: true }
 );

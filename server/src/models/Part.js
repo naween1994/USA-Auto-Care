@@ -14,6 +14,7 @@ const partSchema = new mongoose.Schema(
     supplier: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier', default: null },
     storageLocation: { type: String, trim: true, default: '' },
     isActive: { type: Boolean, default: true },
+    isArchived: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, optimisticConcurrency: true }
 );

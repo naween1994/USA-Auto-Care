@@ -3,10 +3,11 @@ import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
 import { User } from '../models/User.js';
 import { AuditLog } from '../models/AuditLog.js';
-import { loginSchema, staffUserSchema } from '../validators/schemas.js';
+import { changePasswordSchema, loginSchema, staffUserSchema } from '../validators/schemas.js';
 import {
   requireAuth,
   requirePermission,
+  requireAdminPassword,
   verifyCsrf,
   signAuthToken,
   generateCsrfToken,
@@ -15,6 +16,7 @@ import {
   CSRF_COOKIE_NAME,
 } from '../middleware/auth.js';
 import { emitDomainEvent } from '../socket/socketManager.js';
+import { withTransaction } from '../utils/dbTransaction.js';
 
 const router = express.Router();
 
@@ -24,6 +26,14 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many login attempts. Please wait 15 minutes before retrying.' },
+});
+
+const passwordChangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password change attempts. Please wait before retrying.' },
 });
 
 router.post('/login', loginLimiter, async (req, res, next) => {
@@ -62,6 +72,31 @@ router.post('/login', loginLimiter, async (req, res, next) => {
 router.post('/logout', requireAuth, verifyCsrf, (req, res) => {
   clearAuthCookies(res);
   return res.json({ message: 'Logged out successfully' });
+});
+
+router.post('/change-password', passwordChangeLimiter, requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const parsed = changePasswordSchema.parse(req.body);
+    const user = await User.findById(req.user._id).select('+passwordHash');
+    if (!user || !user.isActive) {
+      return res.status(401).json({ message: 'Your account is no longer active. Please sign in again.' });
+    }
+
+    const valid = await bcrypt.compare(parsed.currentPassword, user.passwordHash);
+    if (!valid) {
+      return res.status(403).json({ message: 'Current password is incorrect.' });
+    }
+    if (await bcrypt.compare(parsed.newPassword, user.passwordHash)) {
+      return res.status(400).json({ message: 'Choose a new password different from your current password.' });
+    }
+
+    user.passwordHash = await bcrypt.hash(parsed.newPassword, 12);
+    await user.save();
+
+    return res.json({ message: 'Password changed successfully.' });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 router.get('/me', requireAuth, (req, res) => {
@@ -153,12 +188,15 @@ router.patch(
     try {
       const staff = await User.findById(req.params.id);
       if (!staff) return res.status(404).json({ message: 'Staff member not found' });
+      if (req.body.isActive === false) {
+        return res.status(400).json({ message: 'Use the password-confirmed deactivate action to disable a staff account.' });
+      }
 
       const previousRole = staff.role;
       if (req.body.name) staff.name = req.body.name;
       if (req.body.phone !== undefined) staff.phone = req.body.phone;
       if (req.body.role) staff.role = req.body.role;
-      if (req.body.isActive !== undefined) staff.isActive = Boolean(req.body.isActive);
+      if (req.body.isActive === true) staff.isActive = true;
       if (req.body.password && req.body.password.length >= 8) {
         staff.passwordHash = await bcrypt.hash(req.body.password, 12);
       }
@@ -180,6 +218,68 @@ router.patch(
 
       emitDomainEvent('staff', 'updated', { id: staff._id }, 'role:admin');
       return res.json({ data: staff });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.delete(
+  '/staff/:id',
+  requireAuth,
+  verifyCsrf,
+  requirePermission('MANAGE_SETTINGS_AND_STAFF'),
+  adminPasswordLimiter,
+  requireAdminPassword,
+  async (req, res, next) => {
+    try {
+      if (String(req.user._id) === req.params.id) {
+        return res.status(400).json({ message: 'You cannot deactivate your own account.' });
+      }
+
+      const staff = await withTransaction(async (session) => {
+        const target = await User.findById(req.params.id).session(session);
+        if (!target) {
+          const error = new Error('Staff member not found');
+          error.statusCode = 404;
+          throw error;
+        }
+        if (!target.isActive) {
+          const error = new Error('This staff account is already inactive.');
+          error.statusCode = 409;
+          throw error;
+        }
+
+        if (target.role === 'admin') {
+          const activeAdmins = await User.countDocuments({ role: 'admin', isActive: true }).session(session);
+          if (activeAdmins <= 1) {
+            const error = new Error('The last active administrator account cannot be deactivated.');
+            error.statusCode = 409;
+            throw error;
+          }
+        }
+
+        target.isActive = false;
+        await target.save({ session });
+
+        await AuditLog.create(
+          [{
+            action: 'STAFF_DEACTIVATED',
+            entityType: 'User',
+            entityId: String(target._id),
+            summary: `Deactivated staff user ${target.name} (${target.role})`,
+            metadata: { email: target.email, role: target.role },
+            performedBy: req.user._id,
+            performedByName: req.user.name,
+            performedByRole: req.user.role,
+          }],
+          { session }
+        );
+        return target;
+      });
+
+      emitDomainEvent('staff', 'updated', { id: staff._id }, 'role:admin');
+      return res.json({ message: 'Staff account deactivated. Its historical records have been retained.' });
     } catch (err) {
       return next(err);
     }

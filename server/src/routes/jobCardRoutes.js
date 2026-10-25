@@ -93,7 +93,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     const assignedMechanic = req.query.assignedMechanic;
     const search = (req.query.search || '').trim();
 
-    const query = {};
+    const query = { isArchived: { $ne: true } };
     if (status) query.status = status;
     if (assignedMechanic) query.assignedMechanic = assignedMechanic;
     if (req.user.role === ROLES.MECHANIC && req.query.onlyMine === 'true') {

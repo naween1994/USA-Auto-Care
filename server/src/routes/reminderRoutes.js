@@ -17,7 +17,8 @@ export const notificationProviderAdapter = {
 
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const filter = req.query.status ? { status: req.query.status } : {};
+    const filter = { isArchived: { $ne: true } };
+    if (req.query.status) filter.status = req.query.status;
     const reminders = await Reminder.find(filter)
       .populate('customer', 'name phone email')
       .populate('vehicle', 'registrationNumber make model mileageKm nextServiceDate nextServiceMileageKm')

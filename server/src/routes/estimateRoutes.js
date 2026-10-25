@@ -13,7 +13,7 @@ const router = express.Router();
 
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const query = {};
+    const query = { isArchived: { $ne: true } };
     if (req.query.jobCardId) query.jobCard = req.query.jobCardId;
     if (req.query.status) query.status = req.query.status;
 

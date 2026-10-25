@@ -18,7 +18,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     const search = (req.query.search || '').trim();
     const customerId = req.query.customerId;
 
-    const query = { isArchived: false };
+    const query = { isArchived: { $ne: true } };
     if (customerId) query.customer = customerId;
     if (search) {
       const normalized = normalizeRegistrationNumber(search);

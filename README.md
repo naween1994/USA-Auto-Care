@@ -48,6 +48,14 @@ For local development/testing only (blocked when `NODE_ENV=production`), you can
 npm run seed:dev
 ```
 
+### Staff Accounts, Password Changes, and Record Archiving
+
+Administrators can create staff accounts from **User Management** in the portal. Give each new staff member their initial password; every signed-in user can change their own password from **My Account** after entering their current password.
+
+Operational records can be archived from **User Management**. Archiving requires the administrator's current password, hides the record from normal work lists, retains the document and linked history, and writes an audit entry. Archived records can be restored from the same screen. Staff deactivation also requires the administrator's current password and preserves historical attribution.
+
+Invoices, payments, stock movement history, and audit logs are protected from archiving. Use the existing invoice-void and payment-reversal workflows for financial corrections rather than removing accounting history.
+
 ## 4. Running in Development
 
 In development, Vite runs on `http://localhost:5173` and proxies `/api`, `/uploads`, and `/socket.io` WebSocket traffic to Express on `http://localhost:5000`:

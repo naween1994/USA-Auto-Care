@@ -17,7 +17,7 @@ const businessSettingsSchema = new mongoose.Schema(
     streetAddress: { type: String, default: '' },
     taxRegistrationNumber: { type: String, default: '' },
     establishedYear: { type: Number, default: null },
-    logoUrl: { type: String, default: '/logo.jpeg' },
+    logoUrl: { type: String, default: '/logo.png' },
     invoiceFooter: {
       type: String,
       default: 'Thank you for choosing USA Auto Care, Alawwa. Hotlines: 0773995399 / 0703995399 • Email: usaautocare66@gmail.com',

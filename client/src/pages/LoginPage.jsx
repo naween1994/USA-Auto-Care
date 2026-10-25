@@ -49,8 +49,8 @@ export function LoginPage() {
       <header className="relative z-10 border-b border-slate-800/80 bg-[#0b1120]/80 px-5 py-4 backdrop-blur sm:px-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-blue-500/30 bg-white p-1.5 shadow-md">
-              <img src="/logo.jpeg" alt="USA Auto Care Logo" className="h-9 w-auto object-contain" />
+            <div className="rounded-xl border border-blue-500/30 p-1.5">
+              <img src="/logo-dark.png" alt="USA Auto Care Logo" className="h-9 w-auto object-contain" />
             </div>
             <div>
               <h1 className="font-extrabold tracking-tight text-white">USA AUTO CARE</h1>
@@ -130,8 +130,8 @@ export function LoginPage() {
                 <h2 className="text-lg font-extrabold text-white">Staff Portal</h2>
                 <p className="mt-1 text-xs text-slate-400">Sign in with your staff account</p>
               </div>
-              <div className="rounded-lg bg-white p-1.5">
-                <img src="/logo.jpeg" alt="" className="h-7 w-auto object-contain" />
+              <div className="rounded-lg p-1.5">
+                <img src="/logo-dark.png" alt="" className="h-7 w-auto object-contain" />
               </div>
             </div>
 

@@ -16,6 +16,7 @@ const appointmentSchema = new mongoose.Schema(
     },
     convertedJobCard: { type: mongoose.Schema.Types.ObjectId, ref: 'JobCard', default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    isArchived: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, optimisticConcurrency: true }
 );

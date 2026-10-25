@@ -1,12 +1,137 @@
 import express from 'express';
 import { BusinessSettings } from '../models/BusinessSettings.js';
 import { AuditLog } from '../models/AuditLog.js';
-import { requireAuth, requirePermission, verifyCsrf } from '../middleware/auth.js';
-import { assertVersionMatch } from '../utils/dbTransaction.js';
+import { Customer } from '../models/Customer.js';
+import { Vehicle } from '../models/Vehicle.js';
+import { Appointment } from '../models/Appointment.js';
+import { JobCard } from '../models/JobCard.js';
+import { Estimate } from '../models/Estimate.js';
+import { Part } from '../models/Part.js';
+import { Supplier } from '../models/Supplier.js';
+import { Expense } from '../models/Expense.js';
+import { Reminder } from '../models/Reminder.js';
+import {
+  adminPasswordLimiter,
+  requireAdminPassword,
+  requireAuth,
+  requirePermission,
+  verifyCsrf,
+} from '../middleware/auth.js';
+import { assertVersionMatch, withTransaction } from '../utils/dbTransaction.js';
 import { toMinorUnits } from '../utils/domainLogic.js';
 import { emitDomainEvent } from '../socket/socketManager.js';
 
 const router = express.Router();
+
+const archivableRecords = {
+  customers: { model: Customer, label: 'Customers', fields: ['name', 'phone', 'email'] },
+  vehicles: { model: Vehicle, label: 'Vehicles', fields: ['registrationNumber', 'make', 'model'] },
+  appointments: { model: Appointment, label: 'Appointments', fields: ['requestedService', 'status'] },
+  jobCards: { model: JobCard, label: 'Job cards', fields: ['jobNumber', 'status', 'customerComplaints'] },
+  estimates: { model: Estimate, label: 'Estimates', fields: ['estimateNumber', 'status'] },
+  parts: { model: Part, label: 'Inventory parts', fields: ['sku', 'name', 'category'] },
+  suppliers: { model: Supplier, label: 'Suppliers', fields: ['name', 'phone'] },
+  expenses: { model: Expense, label: 'Expenses', fields: ['category', 'notes'] },
+  reminders: { model: Reminder, label: 'Service reminders', fields: ['serviceType', 'status'] },
+};
+
+router.get(
+  '/records',
+  requireAuth,
+  requirePermission('MANAGE_SETTINGS_AND_STAFF'),
+  async (req, res, next) => {
+    try {
+      const type = req.query.type;
+      if (!Object.hasOwn(archivableRecords, type)) {
+        return res.status(400).json({ message: 'Choose a supported record category.' });
+      }
+      const recordType = archivableRecords[type];
+
+      const page = Math.max(1, Number(req.query.page) || 1);
+      const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+      const [total, records] = await Promise.all([
+        recordType.model.countDocuments(),
+        recordType.model
+          .find()
+          .sort({ updatedAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean(),
+      ]);
+      return res.json({
+        data: records.map((record) => ({
+          _id: record._id,
+          isArchived: Boolean(record.isArchived),
+          updatedAt: record.updatedAt,
+          label: recordType.fields
+            .map((field) => record[field])
+            .filter((value) => value !== undefined && value !== null && value !== '')
+            .join(' • '),
+        })),
+        pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.patch(
+  '/records/:type/:id/archive',
+  requireAuth,
+  verifyCsrf,
+  requirePermission('MANAGE_SETTINGS_AND_STAFF'),
+  adminPasswordLimiter,
+  requireAdminPassword,
+  async (req, res, next) => {
+    try {
+      if (!Object.hasOwn(archivableRecords, req.params.type)) {
+        return res.status(400).json({ message: 'This record category cannot be archived here.' });
+      }
+      const recordType = archivableRecords[req.params.type];
+      if (typeof req.body.isArchived !== 'boolean') {
+        return res.status(400).json({ message: 'Choose whether to archive or restore this record.' });
+      }
+
+      const record = await withTransaction(async (session) => {
+        const target = await recordType.model.findById(req.params.id).session(session);
+        if (!target) {
+          const error = new Error('Record not found.');
+          error.statusCode = 404;
+          throw error;
+        }
+        if (Boolean(target.isArchived) === req.body.isArchived) {
+          const error = new Error(req.body.isArchived ? 'This record is already archived.' : 'This record is already active.');
+          error.statusCode = 409;
+          throw error;
+        }
+
+        target.isArchived = req.body.isArchived;
+        await target.save({ session });
+
+        await AuditLog.create(
+          [{
+            action: req.body.isArchived ? 'RECORD_ARCHIVED' : 'RECORD_RESTORED',
+            entityType: recordType.model.modelName,
+            entityId: String(target._id),
+            summary: `${req.body.isArchived ? 'Archived' : 'Restored'} ${recordType.label.slice(0, -1)} record`,
+            metadata: { recordType: req.params.type },
+            performedBy: req.user._id,
+            performedByName: req.user.name,
+            performedByRole: req.user.role,
+          }],
+          { session }
+        );
+        return target;
+      });
+
+      emitDomainEvent(req.params.type, req.body.isArchived ? 'archived' : 'restored', { id: record._id });
+      return res.json({ message: req.body.isArchived ? 'Record archived.' : 'Record restored.' });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
 
 router.get('/settings', requireAuth, async (_req, res, next) => {
   try {

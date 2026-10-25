@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, formatLkr, formatDateTimeLK } from '../lib/apiClient.js';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
 
 export function EstimatesPage() {
   const qc = useQueryClient();
@@ -161,7 +162,7 @@ export function EstimatesPage() {
           <div className="space-y-3">
             {(estimatesRes?.data || []).map((est) => (
               <div key={est._id} className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 space-y-2">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center gap-2">
                   <div>
                     <span className="font-mono font-bold text-sm">{est.estimateNumber}</span>
                     <span className="ml-2 text-xs text-slate-500">
@@ -171,6 +172,12 @@ export function EstimatesPage() {
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100">
                     {est.status}
                   </span>
+                  <AdminRecordAction
+                    recordType="estimates"
+                    recordId={est._id}
+                    recordLabel={`estimate ${est.estimateNumber}`}
+                    compact
+                  />
                 </div>
                 <div className="flex justify-between text-xs text-slate-600">
                   <span>Parts: {formatLkr(est.partsSubtotalMinor)} | Labour: {formatLkr(est.labourSubtotalMinor)}</span>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, formatDateTimeLK } from '../lib/apiClient.js';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
 
 export function RemindersPage() {
   const qc = useQueryClient();
@@ -54,6 +55,7 @@ export function RemindersPage() {
                   <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100">{r.status}</span>
                 </td>
                 <td className="p-3 text-right">
+                  <div className="inline-flex items-center gap-2">
                   {r.status === 'Pending' && (
                     <button
                       type="button"
@@ -63,6 +65,13 @@ export function RemindersPage() {
                       Mark Contacted
                     </button>
                   )}
+                    <AdminRecordAction
+                      recordType="reminders"
+                      recordId={r._id}
+                      recordLabel={`service reminder for ${r.vehicle?.registrationNumber || r.customer?.name || 'vehicle'}`}
+                      compact
+                    />
+                  </div>
                 </td>
               </tr>
             ))}

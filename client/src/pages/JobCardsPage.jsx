@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, formatLkr, formatDateTimeLK } from '../lib/apiClient.js';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
 
 const ALLOWED_NEXT = {
   'Checked In': ['Inspecting', 'Awaiting Approval', 'In Progress', 'Cancelled'],
@@ -119,9 +120,20 @@ export function JobCardsPage() {
                   selectedJobId === j._id ? 'bg-rose-50/50 border-l-4 border-brandRed-600' : ''
                 }`}
               >
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center gap-2">
                   <span className="font-mono font-bold text-sm">{j.jobNumber}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 font-semibold">{j.status}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 font-semibold">{j.status}</span>
+                    <AdminRecordAction
+                      recordType="jobCards"
+                      recordId={j._id}
+                      recordLabel={`job card ${j.jobNumber}`}
+                      compact
+                      onArchived={() => {
+                        if (selectedJobId === j._id) setSelectedJobId(null);
+                      }}
+                    />
+                  </div>
                 </div>
                 <p className="text-xs font-semibold mt-1">
                   {j.vehicle?.registrationNumber} — {j.vehicle?.make} {j.vehicle?.model}

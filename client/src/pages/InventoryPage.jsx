@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, formatLkr, formatDateTimeLK } from '../lib/apiClient.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
 
 export function InventoryPage() {
   const { user } = useAuth();
@@ -161,6 +162,7 @@ export function InventoryPage() {
                   {canSeeCost && <th className="p-3 text-right">Purchase Cost</th>}
                   <th className="p-3 text-right">Selling Price</th>
                   <th className="p-3 text-right">On Hand</th>
+                  {user?.role === 'admin' && <th className="p-3 text-right">Action</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -180,6 +182,11 @@ export function InventoryPage() {
                         {p.quantityOnHand} {p.unit}
                       </span>
                     </td>
+                    {user?.role === 'admin' && (
+                      <td className="p-3 text-right">
+                        <AdminRecordAction recordType="parts" recordId={p._id} recordLabel={`inventory part ${p.name}`} compact />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

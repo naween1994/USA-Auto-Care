@@ -30,21 +30,11 @@ export function AppLayout() {
   const { user, logout, lang, setLang, t } = useAuth();
   const { isConnected } = useSocketSync(user);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState('');
   const navigate = useNavigate();
 
-  async function handleLogout() {
-    setIsLoggingOut(true);
-    setLogoutError('');
-    try {
-      await logout();
-      navigate('/login', { replace: true });
-    } catch (error) {
-      setLogoutError(error.message || 'Sign out failed. Please try again.');
-    } finally {
-      setIsLoggingOut(false);
-    }
+  function handleLogout() {
+    logout();
+    navigate('/login', { replace: true });
   }
 
   const mainNavItems = [
@@ -156,11 +146,10 @@ export function AppLayout() {
           <button
             type="button"
             onClick={handleLogout}
-            disabled={isLoggingOut}
             className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-semibold"
           >
             <LogOut className="w-3.5 h-3.5 text-red-400" />
-            {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
+            Sign Out
           </button>
         </div>
 
@@ -176,21 +165,15 @@ export function AppLayout() {
           <button
             type="button"
             onClick={handleLogout}
-            disabled={isLoggingOut}
             className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-slate-800 text-xs text-slate-200 font-semibold"
           >
             <LogOut className="w-3.5 h-3.5 text-red-400" />
-            {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
+            Sign Out
           </button>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        {logoutError && (
-          <div role="alert" className="no-print bg-rose-700 px-4 py-2 text-center text-xs font-semibold text-white">
-            {logoutError}
-          </div>
-        )}
         {!isConnected && (
           <div
             role="alert"

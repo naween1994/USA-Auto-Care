@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '../lib/apiClient.js';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog.jsx';
+import { Trash2 } from 'lucide-react';
 
 const recordTypes = [
   { value: 'customers', label: 'Customers' },
@@ -223,9 +224,10 @@ export function AdminManagementPage() {
                               deactivateStaff.reset();
                               setDialog({ kind: 'staff', id: staff._id, name: staff.name });
                             }}
-                            className="text-xs font-semibold text-rose-700 hover:underline"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 hover:underline"
                           >
-                            Deactivate
+                              <Trash2 className="h-4 w-4" />
+                              Deactivate
                           </button>
                         ) : (
                           <button
@@ -310,8 +312,11 @@ export function AdminManagementPage() {
                             isArchived: !record.isArchived,
                           });
                         }}
-                        className="text-xs font-semibold text-blue-700 hover:underline"
+                        className={`inline-flex items-center gap-1 text-xs font-semibold hover:underline ${
+                          record.isArchived ? 'text-emerald-700' : 'text-rose-700'
+                        }`}
                       >
+                        {record.isArchived ? null : <Trash2 className="h-4 w-4" />}
                         {record.isArchived ? 'Restore' : 'Archive'}
                       </button>
                     </td>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, formatLkr, formatDateTimeLK } from '../lib/apiClient.js';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
 
 export function VehiclesPage() {
   const qc = useQueryClient();
@@ -193,7 +194,7 @@ export function VehiclesPage() {
                   <th className="p-3">Make & Model</th>
                   <th className="p-3">Owner</th>
                   <th className="p-3 text-right">Mileage</th>
-                  <th className="p-3 text-right">History</th>
+                  <th className="p-3 text-right">History / Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -206,13 +207,16 @@ export function VehiclesPage() {
                     <td className="p-3">{v.customer?.name}</td>
                     <td className="p-3 text-right font-mono">{v.mileageKm?.toLocaleString()} km</td>
                     <td className="p-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedVehicleId(v._id)}
-                        className="text-xs font-semibold text-brandRed-600 hover:underline"
-                      >
-                        Service Log
-                      </button>
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedVehicleId(v._id)}
+                          className="text-xs font-semibold text-brandRed-600 hover:underline"
+                        >
+                          Service Log
+                        </button>
+                        <AdminRecordAction recordType="vehicles" recordId={v._id} recordLabel={`vehicle ${v.registrationNumber}`} compact />
+                      </div>
                     </td>
                   </tr>
                 ))}

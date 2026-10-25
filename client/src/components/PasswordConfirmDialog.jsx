@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 
 export function PasswordConfirmDialog({
   title,
@@ -10,6 +10,7 @@ export function PasswordConfirmDialog({
   onConfirm,
 }) {
   const [password, setPassword] = useState('');
+  const passwordInputId = useId();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
@@ -26,11 +27,11 @@ export function PasswordConfirmDialog({
         </div>
         {error && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
         <div>
-          <label htmlFor="confirm-admin-password" className="mb-1 block text-xs font-semibold text-slate-700">
+          <label htmlFor={passwordInputId} className="mb-1 block text-xs font-semibold text-slate-700">
             Your current administrator password
           </label>
           <input
-            id="confirm-admin-password"
+            id={passwordInputId}
             type="password"
             autoComplete="current-password"
             required

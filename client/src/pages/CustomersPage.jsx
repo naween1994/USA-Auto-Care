@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, formatLkr } from '../lib/apiClient.js';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
 
 export function CustomersPage() {
   const qc = useQueryClient();
@@ -143,13 +144,16 @@ export function CustomersPage() {
                       <td className="p-3 text-slate-500">{c.address || '—'}</td>
                       <td className="p-3 text-right font-mono">{formatLkr(c.depositBalanceMinor)}</td>
                       <td className="p-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(c._id)}
-                          className="text-xs font-semibold text-brandRed-600 hover:underline"
-                        >
-                          View Profile
-                        </button>
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedId(c._id)}
+                            className="text-xs font-semibold text-brandRed-600 hover:underline"
+                          >
+                            View Profile
+                          </button>
+                          <AdminRecordAction recordType="customers" recordId={c._id} recordLabel={`customer ${c.name}`} compact />
+                        </div>
                       </td>
                     </tr>
                   ))}

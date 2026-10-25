@@ -4,7 +4,7 @@ import { Wrench, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, logoutError } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -136,6 +136,11 @@ export function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {logoutError && (
+                <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-950/50 p-3 text-sm text-amber-100">
+                  {logoutError}
+                </div>
+              )}
               {error && (
                 <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-950/50 p-3 text-sm text-rose-200">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

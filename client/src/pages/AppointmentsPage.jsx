@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest, formatDateTimeLK } from '../lib/apiClient.js';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
 
 export function AppointmentsPage() {
   const qc = useQueryClient();
@@ -197,19 +198,27 @@ export function AppointmentsPage() {
                     </select>
                   </td>
                   <td className="p-3 text-right">
-                    {a.convertedJobCard ? (
-                      <span className="text-xs font-mono text-emerald-700 font-semibold">
-                        {a.convertedJobCard.jobNumber}
-                      </span>
-                    ) : a.status === 'Arrived' ? (
-                      <button
-                        type="button"
-                        onClick={() => convertToJobMutation.mutate(a)}
-                        className="px-2.5 py-1 rounded bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold"
-                      >
-                        Convert to Job Card
-                      </button>
-                    ) : null}
+                    <div className="inline-flex items-center gap-2">
+                      {a.convertedJobCard ? (
+                        <span className="text-xs font-mono text-emerald-700 font-semibold">
+                          {a.convertedJobCard.jobNumber}
+                        </span>
+                      ) : a.status === 'Arrived' ? (
+                        <button
+                          type="button"
+                          onClick={() => convertToJobMutation.mutate(a)}
+                          className="px-2.5 py-1 rounded bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold"
+                        >
+                          Convert to Job Card
+                        </button>
+                      ) : null}
+                      <AdminRecordAction
+                        recordType="appointments"
+                        recordId={a._id}
+                        recordLabel={`appointment for ${a.customer?.name || a.requestedService}`}
+                        compact
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

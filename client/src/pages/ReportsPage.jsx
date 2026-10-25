@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, formatLkr } from '../lib/apiClient.js';
+import { AdminRecordAction } from '../components/AdminRecordAction.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 
 export function ReportsPage() {
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [expForm, setExpForm] = useState({
     category: 'Utilities',
@@ -135,6 +138,7 @@ export function ReportsPage() {
                 <th className="py-2">Category</th>
                 <th className="py-2">Notes</th>
                 <th className="py-2 text-right">Amount</th>
+                {user?.role === 'admin' && <th className="py-2 text-right">Action</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -144,6 +148,16 @@ export function ReportsPage() {
                   <td className="py-2 font-semibold">{e.category}</td>
                   <td className="py-2">{e.notes}</td>
                   <td className="py-2 text-right font-mono font-bold">{formatLkr(e.amountMinor)}</td>
+                  {user?.role === 'admin' && (
+                    <td className="py-2 text-right">
+                      <AdminRecordAction
+                        recordType="expenses"
+                        recordId={e._id}
+                        recordLabel={`expense ${e.category}`}
+                        compact
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

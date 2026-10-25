@@ -27,6 +27,7 @@ export function SettingsPage() {
     taxLabel: 'VAT',
     taxRatePercent: 0,
     defaultLabourRateLkr: 3500,
+    serviceCatalog: [],
     __v: 0,
   });
 
@@ -45,6 +46,10 @@ export function SettingsPage() {
         taxLabel: s.taxLabel || 'VAT',
         taxRatePercent: s.taxRatePercent || 0,
         defaultLabourRateLkr: (s.defaultLabourRateMinor || 350000) / 100,
+        serviceCatalog: (s.serviceCatalog || []).map((service) => ({
+          name: service.name,
+          defaultRateLkr: service.defaultRateMinor / 100,
+        })),
         __v: s.__v,
       });
     }
@@ -79,7 +84,13 @@ export function SettingsPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            saveSettings.mutate(form);
+            saveSettings.mutate({
+              ...form,
+              serviceCatalog: form.serviceCatalog.map((service) => ({
+                name: service.name,
+                defaultRateLkr: Number(service.defaultRateLkr),
+              })),
+            });
           }}
           className="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3"
         >
@@ -171,6 +182,68 @@ export function SettingsPage() {
                 placeholder="Rate %"
               />
             )}
+          </div>
+          <div className="space-y-3 border-t border-slate-200 pt-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Estimate Service Catalog</h4>
+                <p className="text-xs text-slate-500">Set default LKR rates. Staff can override each rate on an estimate.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm({
+                  ...form,
+                  serviceCatalog: [...form.serviceCatalog, { name: '', defaultRateLkr: 0 }],
+                })}
+                className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                Add Service
+              </button>
+            </div>
+            <div className="max-h-80 space-y-2 overflow-y-auto">
+              {form.serviceCatalog.map((service, index) => (
+                <div key={`${service.name}-${index}`} className="grid grid-cols-[minmax(0,1fr)_120px_auto] gap-2">
+                  <input
+                    aria-label={`Service ${index + 1} name`}
+                    required
+                    maxLength={120}
+                    value={service.name}
+                    onChange={(event) => {
+                      const serviceCatalog = [...form.serviceCatalog];
+                      serviceCatalog[index] = { ...service, name: event.target.value };
+                      setForm({ ...form, serviceCatalog });
+                    }}
+                    placeholder="Service name"
+                    className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    aria-label={`Service ${index + 1} default rate in LKR`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={service.defaultRateLkr}
+                    onChange={(event) => {
+                      const serviceCatalog = [...form.serviceCatalog];
+                      serviceCatalog[index] = { ...service, defaultRateLkr: event.target.value };
+                      setForm({ ...form, serviceCatalog });
+                    }}
+                    className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Remove ${service.name || 'service'}`}
+                    onClick={() => setForm({
+                      ...form,
+                      serviceCatalog: form.serviceCatalog.filter((_, serviceIndex) => serviceIndex !== index),
+                    })}
+                    className="rounded-lg px-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
           <button
             type="submit"

@@ -21,7 +21,7 @@ export function DashboardPage() {
     { label: 'Vehicles in Workshop', value: d.vehiclesInWorkshopCount ?? 0, tone: 'border-indigo-500' },
     { label: 'Awaiting Customer Approval', value: d.jobsAwaitingApprovalCount ?? 0, tone: 'border-amber-500' },
     { label: 'Jobs Waiting for Parts', value: d.jobsWaitingForPartsCount ?? 0, tone: 'border-orange-500' },
-    { label: 'Ready for Collection', value: d.vehiclesReadyForCollectionCount ?? 0, tone: 'border-emerald-500' },
+    { label: 'Ready to Collect', value: d.vehiclesReadyForCollectionCount ?? 0, tone: 'border-emerald-500' },
     { label: 'Low-Stock Parts Alert', value: d.lowStockPartsCount ?? 0, tone: 'border-brandRed-600' },
   ];
 

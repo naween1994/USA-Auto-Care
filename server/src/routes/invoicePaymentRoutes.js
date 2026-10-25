@@ -16,6 +16,7 @@ import {
   deriveInvoiceBalanceAndStatus,
   getApprovedEstimateRevision,
   mapEstimateRevisionToInvoiceLines,
+  assertJobReadyForInvoice,
   validatePaymentSubmission,
 } from '../utils/domainLogic.js';
 import { emitDomainEvent } from '../socket/socketManager.js';
@@ -80,6 +81,7 @@ router.post(
 
         const job = await JobCard.findById(parsed.jobCardId).session(session);
         if (!job) throw new Error('Job card not found');
+        assertJobReadyForInvoice(job);
 
         const approvedEstimates = await Estimate.find({
           jobCard: job._id,

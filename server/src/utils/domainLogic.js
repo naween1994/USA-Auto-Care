@@ -21,6 +21,7 @@ export const JOB_STATUSES = Object.freeze([
   'Waiting for Parts',
   'In Progress',
   'Quality Check',
+  'Ready to Collect',
   'Ready for Collection',
   'Delivered',
   'Cancelled',
@@ -32,7 +33,8 @@ export const ALLOWED_JOB_TRANSITIONS = Object.freeze({
   'Awaiting Approval': ['Inspecting', 'Waiting for Parts', 'In Progress', 'Cancelled'],
   'Waiting for Parts': ['In Progress', 'Awaiting Approval', 'Cancelled'],
   'In Progress': ['Waiting for Parts', 'Quality Check', 'Awaiting Approval', 'Cancelled'],
-  'Quality Check': ['In Progress', 'Ready for Collection'],
+  'Quality Check': ['In Progress', 'Ready to Collect'],
+  'Ready to Collect': ['Delivered', 'Quality Check'],
   'Ready for Collection': ['Delivered', 'Quality Check'],
   'Delivered': [],
   'Cancelled': [],
@@ -320,6 +322,7 @@ export function validateJobStatusTransition({
   nextStatus,
   unreconciledPartsCount = 0,
   qualityCheckPassed = false,
+  assignedMechanic = true,
 }) {
   if (currentStatus === nextStatus) {
     return { valid: true };
@@ -328,15 +331,32 @@ export function validateJobStatusTransition({
   if (!allowed || !allowed.includes(nextStatus)) {
     throw new Error(`Invalid job status transition from "${currentStatus}" to "${nextStatus}"`);
   }
+  if (!assignedMechanic && nextStatus !== 'Cancelled') {
+    throw new Error('Assign an active mechanic before progressing this job card.');
+  }
   if (nextStatus === 'Cancelled' && unreconciledPartsCount > 0) {
     throw new Error(
       `Cannot cancel job card while ${unreconciledPartsCount} issued workshop part(s) remain unreconciled. Return issued parts to stock first.`
     );
   }
-  if (nextStatus === 'Ready for Collection' && !qualityCheckPassed) {
-    throw new Error('Final quality check must be completed before marking Ready for Collection');
+  if (['Ready to Collect', 'Ready for Collection'].includes(nextStatus) && !qualityCheckPassed) {
+    throw new Error('Final quality check must be completed before marking Ready to Collect');
   }
   return { valid: true };
+}
+
+export function assertJobReadyForInvoice(job) {
+  if (
+    !['Ready to Collect', 'Ready for Collection'].includes(job?.status) ||
+    !job?.qualityCheckPassed ||
+    !job?.assignedMechanic
+  ) {
+    const error = new Error(
+      'The job card must be Ready to Collect after its final road-test and quality check before generating an invoice.'
+    );
+    error.statusCode = 409;
+    throw error;
+  }
 }
 
 /**

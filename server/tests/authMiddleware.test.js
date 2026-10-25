@@ -6,6 +6,7 @@ import { requireAdminPassword } from '../src/middleware/auth.js';
 import '../src/routes/authRoutes.js';
 import '../src/routes/customerRoutes.js';
 import '../src/routes/settingsAuditRoutes.js';
+import '../src/routes/invoicePaymentRoutes.js';
 
 test('administrator password confirmation protects sensitive actions', async () => {
   const originalFindById = User.findById;

@@ -10,6 +10,7 @@ import { StockMovement } from '../models/StockMovement.js';
 import { Reminder } from '../models/Reminder.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { Counter } from '../models/Counter.js';
+import { User } from '../models/User.js';
 import {
   createJobCardSchema,
   updateJobCardSchema,
@@ -152,6 +153,39 @@ router.post(
       const parsed = createJobCardSchema.parse(req.body);
 
       const createdJob = await withTransaction(async (session) => {
+        const mechanic = await User.findOne({
+          _id: parsed.assignedMechanic,
+          role: ROLES.MECHANIC,
+          isActive: true,
+        }).session(session);
+        if (!mechanic) {
+          const error = new Error('Select an active mechanic to assign to this job card.');
+          error.statusCode = 400;
+          throw error;
+        }
+
+        if (parsed.appointmentId) {
+          const appointment = await Appointment.findById(parsed.appointmentId).session(session);
+          if (!appointment || appointment.status !== 'Arrived') {
+            const error = new Error('Only an arrived appointment can be converted to a job card.');
+            error.statusCode = 409;
+            throw error;
+          }
+          if (
+            String(appointment.customer) !== parsed.customer ||
+            String(appointment.vehicle) !== parsed.vehicle
+          ) {
+            const error = new Error('Job card customer and vehicle must match the arrived appointment.');
+            error.statusCode = 400;
+            throw error;
+          }
+          if (appointment.convertedJobCard) {
+            const error = new Error('This appointment already has a job card.');
+            error.statusCode = 409;
+            throw error;
+          }
+        }
+
         const jobNumber = await Counter.nextSequence('JOB_CARD', 'JOB', 5, session);
 
         const [job] = await JobCard.create(
@@ -254,7 +288,26 @@ router.put(
       if (parsed.accessoriesNotes !== undefined) job.accessoriesNotes = parsed.accessoriesNotes;
       if (parsed.diagnosisNotes !== undefined) job.diagnosisNotes = parsed.diagnosisNotes;
       if (parsed.mechanicNotes !== undefined) job.mechanicNotes = parsed.mechanicNotes;
-      if (parsed.assignedMechanic !== undefined) job.assignedMechanic = parsed.assignedMechanic || null;
+      if (parsed.assignedMechanic !== undefined) {
+        if (!parsed.assignedMechanic && !['Delivered', 'Cancelled'].includes(job.status)) {
+          const error = new Error('An active job card must remain assigned to a mechanic.');
+          error.statusCode = 409;
+          throw error;
+        }
+        if (parsed.assignedMechanic) {
+          const mechanic = await User.findOne({
+            _id: parsed.assignedMechanic,
+            role: ROLES.MECHANIC,
+            isActive: true,
+          });
+          if (!mechanic) {
+            const error = new Error('Select an active mechanic to assign to this job card.');
+            error.statusCode = 400;
+            throw error;
+          }
+        }
+        job.assignedMechanic = parsed.assignedMechanic || null;
+      }
       if (parsed.estimatedCompletionAt !== undefined) {
         job.estimatedCompletionAt = parsed.estimatedCompletionAt
           ? new Date(parsed.estimatedCompletionAt)
@@ -284,6 +337,21 @@ router.put(
         });
       }
       if (parsed.qualityCheckPassed !== undefined) {
+        if (parsed.qualityCheckPassed && !job.assignedMechanic) {
+          const error = new Error('Assign a mechanic before completing the final road-test and quality check.');
+          error.statusCode = 409;
+          throw error;
+        }
+        if (parsed.qualityCheckPassed && job.status !== 'Quality Check') {
+          const error = new Error('Move the job card to Quality Check before verifying the final road-test.');
+          error.statusCode = 409;
+          throw error;
+        }
+        if (!parsed.qualityCheckPassed && ['Ready to Collect', 'Ready for Collection'].includes(job.status)) {
+          const error = new Error('Move the job card back to Quality Check before clearing its verification.');
+          error.statusCode = 409;
+          throw error;
+        }
         job.qualityCheckPassed = parsed.qualityCheckPassed;
         job.qualityCheckedBy = parsed.qualityCheckPassed ? req.user._id : null;
         job.qualityCheckedAt = parsed.qualityCheckPassed ? new Date() : null;
@@ -356,6 +424,7 @@ router.patch(
         nextStatus: parsed.status,
         unreconciledPartsCount,
         qualityCheckPassed: job.qualityCheckPassed,
+        assignedMechanic: Boolean(job.assignedMechanic),
       });
 
       const previousStatus = job.status;

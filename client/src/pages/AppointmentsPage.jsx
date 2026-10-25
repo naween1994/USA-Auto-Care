@@ -8,6 +8,8 @@ export function AppointmentsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [msg, setMsg] = useState(null);
+  const [conversionAppointment, setConversionAppointment] = useState(null);
+  const [conversionMechanicId, setConversionMechanicId] = useState('');
   const [form, setForm] = useState({
     customer: '',
     vehicle: '',
@@ -31,6 +33,11 @@ export function AppointmentsPage() {
     queryKey: ['vehicles', 'dropdown', form.customer],
     queryFn: () =>
       apiRequest(form.customer ? `/api/vehicles?customerId=${form.customer}` : '/api/vehicles?limit=100'),
+  });
+
+  const { data: mechanicsRes } = useQuery({
+    queryKey: ['staff', 'mechanics'],
+    queryFn: () => apiRequest('/api/auth/staff?role=mechanic'),
   });
 
   const createMutation = useMutation({
@@ -61,11 +68,14 @@ export function AppointmentsPage() {
           fuelLevel: '1/2',
           customerComplaints: appt.requestedService,
           existingDamageNotes: appt.notes || '',
+          assignedMechanic: conversionMechanicId,
         },
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['appointments'] });
       qc.invalidateQueries({ queryKey: ['jobCards'] });
+      setConversionAppointment(null);
+      setConversionMechanicId('');
       navigate('/job-cards');
     },
     onError: (err) => setMsg({ type: 'error', text: err.message }),
@@ -204,13 +214,51 @@ export function AppointmentsPage() {
                           {a.convertedJobCard.jobNumber}
                         </span>
                       ) : a.status === 'Arrived' ? (
-                        <button
-                          type="button"
-                          onClick={() => convertToJobMutation.mutate(a)}
-                          className="px-2.5 py-1 rounded bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold"
-                        >
-                          Convert to Job Card
-                        </button>
+                        conversionAppointment?._id === a._id ? (
+                          <>
+                            <select
+                              aria-label={`Assign mechanic to appointment for ${a.customer?.name}`}
+                              required
+                              value={conversionMechanicId}
+                              onChange={(event) => setConversionMechanicId(event.target.value)}
+                              className="max-w-36 rounded border border-slate-300 px-2 py-1 text-xs"
+                            >
+                              <option value="">Assign mechanic...</option>
+                              {(mechanicsRes?.data || []).map((mechanic) => (
+                                <option key={mechanic._id} value={mechanic._id}>{mechanic.name}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              disabled={!conversionMechanicId || convertToJobMutation.isPending}
+                              onClick={() => convertToJobMutation.mutate(a)}
+                              className="rounded bg-navy-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-navy-800 disabled:opacity-50"
+                            >
+                              {convertToJobMutation.isPending ? 'Creating...' : 'Create Job Card'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConversionAppointment(null);
+                                setConversionMechanicId('');
+                              }}
+                              className="px-1 text-xs text-slate-500 hover:underline"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConversionAppointment(a);
+                              setConversionMechanicId('');
+                            }}
+                            className="rounded bg-navy-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-navy-800"
+                          >
+                            Assign Mechanic & Create Job Card
+                          </button>
+                        )
                       ) : null}
                       <AdminRecordAction
                         recordType="appointments"
@@ -224,6 +272,11 @@ export function AppointmentsPage() {
               ))}
             </tbody>
           </table>
+          {conversionAppointment && !(mechanicsRes?.data || []).length && (
+            <p className="border-t border-slate-100 p-3 text-xs font-medium text-rose-700">
+              No active mechanics are available. Add or reactivate a mechanic account before creating this job card.
+            </p>
+          )}
         </div>
       </div>
     </div>

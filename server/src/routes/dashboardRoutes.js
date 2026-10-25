@@ -26,6 +26,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       'Waiting for Parts',
       'In Progress',
       'Quality Check',
+      'Ready to Collect',
       'Ready for Collection',
     ];
 
@@ -46,7 +47,10 @@ router.get('/', requireAuth, async (req, res, next) => {
       JobCard.countDocuments({ isArchived: { $ne: true }, status: { $in: activeWorkshopStatuses } }),
       JobCard.countDocuments({ isArchived: { $ne: true }, status: 'Awaiting Approval' }),
       JobCard.countDocuments({ isArchived: { $ne: true }, status: 'Waiting for Parts' }),
-      JobCard.countDocuments({ isArchived: { $ne: true }, status: 'Ready for Collection' }),
+      JobCard.countDocuments({
+        isArchived: { $ne: true },
+        status: { $in: ['Ready to Collect', 'Ready for Collection'] },
+      }),
       Part.find({
         isActive: true,
         isArchived: { $ne: true },

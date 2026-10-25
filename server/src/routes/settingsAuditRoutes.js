@@ -22,6 +22,7 @@ import {
 } from '../middleware/auth.js';
 import { assertVersionMatch, withTransaction } from '../utils/dbTransaction.js';
 import { toMinorUnits } from '../utils/domainLogic.js';
+import { DEFAULT_SERVICE_CATALOG } from '../utils/defaultServiceCatalog.js';
 import { emitDomainEvent } from '../socket/socketManager.js';
 
 const router = express.Router();
@@ -264,7 +265,12 @@ router.get('/settings', requireAuth, async (_req, res, next) => {
     if (!settings) {
       settings = await BusinessSettings.create({ singletonKey: 'DEFAULT' });
     }
-    return res.json({ data: settings });
+    return res.json({
+      data: {
+        ...settings,
+        serviceCatalog: settings.serviceCatalog ?? DEFAULT_SERVICE_CATALOG,
+      },
+    });
   } catch (err) {
     return next(err);
   }
@@ -306,6 +312,31 @@ router.put(
       }
       if (Array.isArray(req.body.serviceCategories)) {
         settings.serviceCategories = req.body.serviceCategories;
+      }
+      if (req.body.serviceCatalog !== undefined) {
+        if (!Array.isArray(req.body.serviceCatalog) || req.body.serviceCatalog.length > 100) {
+          return res.status(400).json({ message: 'Service catalog must contain no more than 100 services.' });
+        }
+        if (req.body.serviceCatalog.some((service) => !service || typeof service !== 'object')) {
+          return res.status(400).json({ message: 'Each service needs a name and default rate.' });
+        }
+        const names = req.body.serviceCatalog.map((service) =>
+          typeof service.name === 'string' ? service.name.trim() : ''
+        );
+        if (names.some((name) => !name || name.length > 120) || new Set(names.map((name) => name.toLowerCase())).size !== names.length) {
+          return res.status(400).json({ message: 'Each service needs a unique name of 1 to 120 characters.' });
+        }
+        if (req.body.serviceCatalog.some((service) =>
+          !Number.isFinite(Number(service.defaultRateLkr)) ||
+          Number(service.defaultRateLkr) < 0 ||
+          Number(service.defaultRateLkr) > Number.MAX_SAFE_INTEGER / 100
+        )) {
+          return res.status(400).json({ message: 'Each service rate must be a non-negative LKR amount.' });
+        }
+        settings.serviceCatalog = req.body.serviceCatalog.map((service) => ({
+          name: service.name.trim(),
+          defaultRateMinor: toMinorUnits(Number(service.defaultRateLkr)),
+        }));
       }
 
       await settings.save();

@@ -9,7 +9,8 @@ const ALLOWED_NEXT = {
   'Awaiting Approval': ['Inspecting', 'Waiting for Parts', 'In Progress', 'Cancelled'],
   'Waiting for Parts': ['In Progress', 'Awaiting Approval', 'Cancelled'],
   'In Progress': ['Waiting for Parts', 'Quality Check', 'Awaiting Approval', 'Cancelled'],
-  'Quality Check': ['In Progress', 'Ready for Collection'],
+  'Quality Check': ['In Progress'],
+  'Ready to Collect': ['Delivered', 'Quality Check'],
   'Ready for Collection': ['Delivered', 'Quality Check'],
   'Delivered': [],
   'Cancelled': [],
@@ -162,7 +163,7 @@ export function JobCardsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold px-3 py-1 rounded-full bg-navy-900 text-white">
-                    {activeJob.status}
+                    {activeJob.status === 'Ready for Collection' ? 'Ready to Collect' : activeJob.status}
                   </span>
                   {(ALLOWED_NEXT[activeJob.status] || []).map((nextSt) => (
                     <button
@@ -174,6 +175,22 @@ export function JobCardsPage() {
                       → {nextSt}
                     </button>
                   ))}
+                  {activeJob.status === 'Quality Check' &&
+                    activeJob.qualityCheckPassed &&
+                    activeJob.assignedMechanic && (
+                      <button
+                        type="button"
+                        disabled={statusMutation.isPending}
+                        onClick={() => statusMutation.mutate({
+                          id: activeJob._id,
+                          status: 'Ready to Collect',
+                          __v: activeJob.__v,
+                        })}
+                        className="rounded bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800 disabled:opacity-50"
+                      >
+                        Ready to Collect
+                      </button>
+                    )}
                 </div>
               </div>
 
@@ -228,21 +245,31 @@ export function JobCardsPage() {
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 pt-5">
-                  <input
-                    id="qc-passed-checkbox"
-                    type="checkbox"
-                    checked={Boolean(activeJob.qualityCheckPassed)}
-                    onChange={(e) =>
-                      updateJobMutation.mutate({
-                        id: activeJob._id,
-                        payload: { qualityCheckPassed: e.target.checked, __v: activeJob.__v },
-                      })
-                    }
-                  />
-                  <label htmlFor="qc-passed-checkbox" className="text-xs font-semibold text-slate-800">
-                    Final Road-Test & Quality Check Verified (Required before Ready for Collection)
-                  </label>
+                <div className="pt-5">
+                  {activeJob.status === 'Quality Check' && activeJob.assignedMechanic ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="qc-passed-checkbox"
+                        type="checkbox"
+                        checked={Boolean(activeJob.qualityCheckPassed)}
+                        onChange={(e) =>
+                          updateJobMutation.mutate({
+                            id: activeJob._id,
+                            payload: { qualityCheckPassed: e.target.checked, __v: activeJob.__v },
+                          })
+                        }
+                      />
+                      <label htmlFor="qc-passed-checkbox" className="text-xs font-semibold text-slate-800">
+                        Final Road-Test & Quality Check Verified
+                      </label>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      {activeJob.assignedMechanic
+                        ? 'Move the job to Quality Check after the work is complete to record its final road-test.'
+                        : 'Assign a mechanic before proceeding with the job.'}
+                    </p>
+                  )}
                 </div>
               </div>
 

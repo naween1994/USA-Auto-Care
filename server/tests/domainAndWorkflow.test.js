@@ -8,12 +8,38 @@ import {
   calculateDocumentTotals,
   getApprovedEstimateRevision,
   mapEstimateRevisionToInvoiceLines,
+  assertJobReadyForInvoice,
   deriveInvoiceBalanceAndStatus,
   validatePaymentSubmission,
   validateJobStatusTransition,
   hasPermission,
   sanitizePartForRole,
 } from '../src/utils/domainLogic.js';
+import { DEFAULT_SERVICE_CATALOG } from '../src/utils/defaultServiceCatalog.js';
+import { createJobCardSchema } from '../src/validators/schemas.js';
+
+test('Default service catalog includes the workshop services with editable non-negative rates', () => {
+  const names = DEFAULT_SERVICE_CATALOG.map((service) => service.name);
+  assert.equal(new Set(names).size, names.length);
+  assert.ok(names.includes('Full Service'));
+  assert.ok(names.includes('Washing Body / Vacuum Cleaning'));
+  assert.ok(names.includes('Automatic Transmission Oil Changing'));
+  assert.ok(names.includes('Oil Filter CVT'));
+  assert.ok(names.includes('Under body & Chassi'));
+  assert.ok(DEFAULT_SERVICE_CATALOG.every((service) => service.defaultRateMinor >= 0));
+});
+
+test('Job card creation requires a mechanic assignment', () => {
+  const details = {
+    customer: 'customer-id',
+    vehicle: 'vehicle-id',
+    mileageInKm: 10000,
+    fuelLevel: '1/2',
+    customerComplaints: 'Periodic service',
+  };
+  assert.throws(() => createJobCardSchema.parse(details));
+  assert.equal(createJobCardSchema.parse({ ...details, assignedMechanic: 'mechanic-id' }).assignedMechanic, 'mechanic-id');
+});
 
 test('1. Authentication & Role-Based Permissions Enforcement', async (t) => {
   await t.test('Admin has unrestricted access to settings, financials, and inventory costs', () => {
@@ -290,6 +316,36 @@ test('7. Job-Status Validation, Quality Check Gate, and Cancellation Part Reconc
         unreconciledPartsCount: 0,
         qualityCheckPassed: true,
       });
+
+      test('Invoice generation requires a mechanic-assigned job with completed quality check', async (t) => {
+        const readyJob = {
+          status: 'Ready to Collect',
+          qualityCheckPassed: true,
+          assignedMechanic: 'mechanic-id',
+        };
+        assert.doesNotThrow(() => assertJobReadyForInvoice(readyJob));
+
+        await t.test('blocks a job that has not reached Ready to Collect', () => {
+          assert.throws(() => assertJobReadyForInvoice({
+            ...readyJob,
+            status: 'Quality Check',
+          }), /must be Ready to Collect/);
+        });
+
+        await t.test('blocks a job without final quality verification', () => {
+          assert.throws(() => assertJobReadyForInvoice({
+            ...readyJob,
+            qualityCheckPassed: false,
+          }), /must be Ready to Collect/);
+        });
+
+        await t.test('blocks a job without an assigned mechanic', () => {
+          assert.throws(() => assertJobReadyForInvoice({
+            ...readyJob,
+            assignedMechanic: null,
+          }), /must be Ready to Collect/);
+        });
+      });
     }, /Invalid job status transition/);
   });
 
@@ -297,11 +353,31 @@ test('7. Job-Status Validation, Quality Check Gate, and Cancellation Part Reconc
     assert.throws(() => {
       validateJobStatusTransition({
         currentStatus: 'Quality Check',
-        nextStatus: 'Ready for Collection',
+        nextStatus: 'Ready to Collect',
         unreconciledPartsCount: 0,
         qualityCheckPassed: false,
       });
     }, /Final quality check must be completed/);
+  });
+
+  await t.test('Requires an assigned mechanic before progressing an active job', () => {
+    assert.throws(() => {
+      validateJobStatusTransition({
+        currentStatus: 'Checked In',
+        nextStatus: 'Inspecting',
+        assignedMechanic: false,
+      });
+    }, /Assign an active mechanic/);
+  });
+
+  await t.test('Allows Ready to Collect after mechanic assignment and final quality verification', () => {
+    const transition = validateJobStatusTransition({
+      currentStatus: 'Quality Check',
+      nextStatus: 'Ready to Collect',
+      assignedMechanic: true,
+      qualityCheckPassed: true,
+    });
+    assert.equal(transition.valid, true);
   });
 
   await t.test('Blocks Job Cancellation when issued workshop parts have not been returned to stock', () => {

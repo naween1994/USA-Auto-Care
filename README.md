@@ -58,6 +58,12 @@ The trash action on eligible record lists permanently deletes the record from Mo
 
 Invoices, payments, expenses, stock movement history, and audit logs are protected from permanent deletion. Expenses can be archived while retaining their accounting record. Use the existing invoice-void and payment-reversal workflows for financial corrections rather than removing accounting history.
 
+### Service Estimates and Job Completion
+
+The estimate form uses the USA Auto Care service catalog (including full service, washing, oils, filters, tune-up, and related work) instead of a single part and labour line. Administrators can rename, add, remove, and set the default LKR rate for catalog entries in **Settings**. Estimate creators can select multiple catalog services, add custom service lines, and override names, quantities, and rates for the specific estimate. These service lines are saved with the estimate revision and used when creating its invoice. Catalog defaults are editable starting rates; configure them to match the workshop's actual pricing.
+
+When an appointment is marked **Arrived**, staff must assign an active mechanic before converting it into a job card. The job card moves into **Quality Check** after work is complete. Only then can the final road-test and quality-check confirmation be recorded; after confirmation, **Ready to Collect** becomes available. The server prevents invoice generation until the job is in that state and has both mechanic assignment and quality verification.
+
 ## 4. Running in Development
 
 In development, Vite runs on `http://localhost:5173` and proxies `/api`, `/uploads`, and `/socket.io` WebSocket traffic to Express on `http://localhost:5000`:

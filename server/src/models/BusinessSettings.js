@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DEFAULT_SERVICE_CATALOG } from '../utils/defaultServiceCatalog.js';
 
 /**
  * Business Settings for USA Auto Care (Alawwa, Sri Lanka).
@@ -38,6 +39,13 @@ const businessSettingsSchema = new mongoose.Schema(
         'Transmission Service',
         'Electrical & Battery Replacement',
       ],
+    },
+    serviceCatalog: {
+      type: [{
+        name: { type: String, required: true, trim: true, maxlength: 120 },
+        defaultRateMinor: { type: Number, required: true, min: 0 },
+      }],
+      default: () => DEFAULT_SERVICE_CATALOG.map((service) => ({ ...service })),
     },
   },
   { timestamps: true, optimisticConcurrency: true }

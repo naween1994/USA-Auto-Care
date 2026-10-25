@@ -94,15 +94,17 @@ export function BillingPage() {
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="">Select Job Card...</option>
-              {(jobsRes?.data || []).map((j) => (
+              {(jobsRes?.data || [])
+                .filter((job) => ['Ready to Collect', 'Ready for Collection'].includes(job.status))
+                .map((j) => (
                 <option key={j._id} value={j._id}>
-                  {j.jobNumber} — {j.vehicle?.registrationNumber} ({j.status})
+                  {j.jobNumber} — {j.vehicle?.registrationNumber} (Ready to Collect)
                 </option>
               ))}
             </select>
           </div>
           <p className="text-xs text-slate-500">
-            The invoice uses this job’s current approved estimate, including its descriptions, prices, discount, and tax.
+            Only jobs marked Ready to Collect after a verified final road-test can be invoiced. The invoice uses the current approved estimate, including its service lines, prices, discount, and tax.
           </p>
           <button
             type="submit"
@@ -277,7 +279,7 @@ export function BillingPage() {
             <thead>
               <tr className="border-y border-slate-300 bg-slate-50 uppercase text-slate-600">
                 <th className="py-2 px-2">Description</th>
-                <th className="py-2 px-2 text-right">Qty / Hrs</th>
+                <th className="py-2 px-2 text-right">Qty</th>
                 <th className="py-2 px-2 text-right">Unit Rate</th>
                 <th className="py-2 px-2 text-right">Line Total</th>
               </tr>
@@ -295,7 +297,7 @@ export function BillingPage() {
               ))}
               {(inv.labour || []).map((l, idx) => (
                 <tr key={idx}>
-                  <td className="py-2 px-2">[Labour] {l.description}</td>
+                  <td className="py-2 px-2">[Service] {l.description}</td>
                   <td className="py-2 px-2 text-right font-mono">{l.hours}</td>
                   <td className="py-2 px-2 text-right font-mono">{formatLkr(l.rateMinor)}</td>
                   <td className="py-2 px-2 text-right font-mono font-semibold">{formatLkr(l.lineTotalMinor)}</td>
@@ -311,7 +313,7 @@ export function BillingPage() {
                 <span className="font-mono">{formatLkr(inv.partsSubtotalMinor)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Labour Subtotal:</span>
+                <span>Service Subtotal:</span>
                 <span className="font-mono">{formatLkr(inv.labourSubtotalMinor)}</span>
               </div>
               {inv.discountMinor > 0 && (

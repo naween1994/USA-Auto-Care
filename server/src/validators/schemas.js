@@ -57,7 +57,7 @@ export const createJobCardSchema = z.object({
   customerComplaints: z.string().min(3, 'Customer complaint description is required'),
   existingDamageNotes: z.string().optional().or(z.literal('')),
   accessoriesNotes: z.string().optional().or(z.literal('')),
-  assignedMechanic: z.string().optional().nullable(),
+  assignedMechanic: z.string().min(1, 'Assign a mechanic before creating the job card'),
   estimatedCompletionAt: z.string().optional().nullable(),
 });
 

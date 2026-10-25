@@ -7,13 +7,16 @@ export function EstimatesPage() {
   const qc = useQueryClient();
   const [msg, setMsg] = useState(null);
   const [jobCardId, setJobCardId] = useState('');
-  const [partName, setPartName] = useState('Synthetic 0W-20 Engine Oil (4L)');
-  const [partPriceLkr, setPartPriceLkr] = useState(14500);
-  const [labourDesc, setLabourDesc] = useState('Periodic Service Labour');
-  const [labourRateLkr, setLabourRateLkr] = useState(3500);
+  const [serviceLines, setServiceLines] = useState([]);
+  const [serviceToAdd, setServiceToAdd] = useState('');
   const [discountLkr, setDiscountLkr] = useState(0);
   const [approvalCustomerName, setApprovalCustomerName] = useState('');
   const [approvalMethod, setApprovalMethod] = useState('Phone');
+
+  const { data: settingsRes } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => apiRequest('/api/admin/settings'),
+  });
 
   const { data: estimatesRes } = useQuery({
     queryKey: ['estimates'],
@@ -64,8 +67,12 @@ export function EstimatesPage() {
             e.preventDefault();
             createEstimate.mutate({
               jobCard: jobCardId,
-              parts: [{ name: partName, quantity: 1, unitPriceLkr: Number(partPriceLkr) }],
-              labour: [{ description: labourDesc, hours: 1, rateLkr: Number(labourRateLkr) }],
+              parts: [],
+              labour: serviceLines.map((service) => ({
+                description: service.description,
+                hours: Number(service.quantity),
+                rateLkr: Number(service.rateLkr),
+              })),
               discountLkr: Number(discountLkr),
             });
           }}
@@ -88,39 +95,121 @@ export function EstimatesPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Primary Part Line</label>
-            <input
-              required
-              value={partName}
-              onChange={(e) => setPartName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-1"
-            />
-            <input
-              type="number"
-              required
-              value={partPriceLkr}
-              onChange={(e) => setPartPriceLkr(e.target.value)}
-              placeholder="Price in LKR"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Labour Line</label>
-            <input
-              required
-              value={labourDesc}
-              onChange={(e) => setLabourDesc(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm mb-1"
-            />
-            <input
-              type="number"
-              required
-              value={labourRateLkr}
-              onChange={(e) => setLabourRateLkr(e.target.value)}
-              placeholder="Labour in LKR"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="estimate-service-picker" className="mb-1 block text-xs font-semibold text-slate-600">
+                Services & Charges *
+              </label>
+              <div className="flex gap-2">
+                <select
+                  id="estimate-service-picker"
+                  value={serviceToAdd}
+                  onChange={(event) => setServiceToAdd(event.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">Select a service to add...</option>
+                  {(settingsRes?.data?.serviceCatalog || []).map((service) => (
+                    <option key={service.name} value={service.name}>
+                      {service.name} — {formatLkr(service.defaultRateMinor)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!serviceToAdd}
+                  onClick={() => {
+                    const service = settingsRes?.data?.serviceCatalog?.find((item) => item.name === serviceToAdd);
+                    if (!service) return;
+                    setServiceLines((lines) => [...lines, {
+                      id: `${Date.now()}-${Math.random()}`,
+                      description: service.name,
+                      quantity: 1,
+                      rateLkr: service.defaultRateMinor / 100,
+                    }]);
+                    setServiceToAdd('');
+                  }}
+                  className="rounded-lg bg-navy-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Catalog defaults can be customized in Settings. Change any line’s name, quantity, or rate here for this estimate.</p>
+              <button
+                type="button"
+                onClick={() => setServiceLines((lines) => [...lines, {
+                  id: `${Date.now()}-${Math.random()}`,
+                  description: '',
+                  quantity: 1,
+                  rateLkr: 0,
+                }])}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Add Custom Service
+              </button>
+            </div>
+            {serviceLines.length > 0 && (
+              <div className="grid grid-cols-[minmax(0,1fr)_64px_110px_auto] gap-2 px-1 text-[10px] font-bold uppercase text-slate-500">
+                <span>Service / Description</span>
+                <span>Qty</span>
+                <span>Rate (LKR)</span>
+                <span className="sr-only">Remove service</span>
+              </div>
+            )}
+            {serviceLines.map((service, index) => (
+              <div key={service.id} className="grid grid-cols-[minmax(0,1fr)_64px_110px_auto] gap-2">
+                <input
+                  required
+                  aria-label={`Service ${index + 1} description`}
+                  value={service.description}
+                  onChange={(event) => setServiceLines((lines) => lines.map((line) =>
+                    line.id === service.id ? { ...line, description: event.target.value } : line
+                  ))}
+                  className="min-w-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                />
+                <input
+                  required
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  aria-label={`Service ${index + 1} quantity`}
+                  value={service.quantity}
+                  onChange={(event) => setServiceLines((lines) => lines.map((line) =>
+                    line.id === service.id ? { ...line, quantity: event.target.value } : line
+                  ))}
+                  className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                />
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  aria-label={`Service ${index + 1} rate in LKR`}
+                  value={service.rateLkr}
+                  onChange={(event) => setServiceLines((lines) => lines.map((line) =>
+                    line.id === service.id ? { ...line, rateLkr: event.target.value } : line
+                  ))}
+                  className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  aria-label={`Remove ${service.description}`}
+                  onClick={() => setServiceLines((lines) => lines.filter((line) => line.id !== service.id))}
+                  className="rounded-lg px-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <div className="flex justify-between text-xs font-semibold text-slate-700">
+              <span>{serviceLines.length} service line(s)</span>
+              <span>Services total: {formatLkr(Math.round(serviceLines.reduce(
+                (total, service) => total + Number(service.quantity || 0) * Number(service.rateLkr || 0),
+                0
+              ) * 100))}</span>
+            </div>
+            {serviceLines.length === 0 && (
+              <p className="text-xs font-medium text-rose-700">Add at least one service or charge to create an estimate.</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Discount (LKR)</label>
@@ -133,7 +222,7 @@ export function EstimatesPage() {
           </div>
           <button
             type="submit"
-            disabled={createEstimate.isPending}
+            disabled={createEstimate.isPending || !jobCardId || serviceLines.length === 0}
             className="w-full py-2 px-4 rounded-lg bg-brandRed-600 hover:bg-brandRed-700 text-white font-semibold text-sm"
           >
             {createEstimate.isPending ? 'Calculating & Saving...' : 'Create Estimate'}
@@ -180,9 +269,24 @@ export function EstimatesPage() {
                   />
                 </div>
                 <div className="flex justify-between text-xs text-slate-600">
-                  <span>Parts: {formatLkr(est.partsSubtotalMinor)} | Labour: {formatLkr(est.labourSubtotalMinor)}</span>
+                  <span>Parts: {formatLkr(est.partsSubtotalMinor)} | Services: {formatLkr(est.labourSubtotalMinor)}</span>
                   <span className="font-bold text-slate-900">Grand Total: {formatLkr(est.grandTotalMinor)}</span>
                 </div>
+                {(est.labour || []).length > 0 && (
+                  <div className="divide-y divide-slate-100 rounded-lg bg-slate-50 px-3">
+                    {est.labour.map((service, index) => (
+                      <div key={`${service.description}-${index}`} className="flex justify-between gap-3 py-2 text-xs">
+                        <span className="min-w-0">
+                          {service.description}
+                          <span className="ml-1 text-slate-500">
+                            × {service.hours} @ {formatLkr(service.rateMinor)}
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-mono font-semibold">{formatLkr(service.lineTotalMinor)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {est.approvalDetails?.approvedAt && (
                   <p className="text-xs text-emerald-700 bg-emerald-50 p-2 rounded">
                     Approved by <strong>{est.approvalDetails.approvingCustomerName}</strong> via{' '}

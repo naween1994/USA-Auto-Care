@@ -28,7 +28,10 @@ const invoiceLabourLineSchema = new mongoose.Schema(
 const invoiceSchema = new mongoose.Schema(
   {
     invoiceNumber: { type: String, required: true, unique: true, index: true },
-    jobCard: { type: mongoose.Schema.Types.ObjectId, ref: 'JobCard', required: true, unique: true, index: true },
+    jobCard: { type: mongoose.Schema.Types.ObjectId, ref: 'JobCard', required: true },
+    estimate: { type: mongoose.Schema.Types.ObjectId, ref: 'Estimate', default: null },
+    estimateNumber: { type: String, default: '' },
+    estimateRevision: { type: Number, default: 0, min: 0 },
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
     vehicle: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle', required: true, index: true },
     businessSnapshot: {
@@ -68,6 +71,15 @@ const invoiceSchema = new mongoose.Schema(
     issuedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true, optimisticConcurrency: true }
+);
+
+invoiceSchema.index(
+  { jobCard: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isVoided: false },
+    name: 'active_invoice_per_job',
+  }
 );
 
 export const Invoice = mongoose.model('Invoice', invoiceSchema);

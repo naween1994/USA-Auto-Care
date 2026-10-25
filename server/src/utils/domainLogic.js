@@ -193,6 +193,44 @@ export function calculateDocumentTotals({
   };
 }
 
+export function getApprovedEstimateRevision(estimate) {
+  if (estimate?.status !== 'Approved') {
+    throw new Error('An approved estimate is required before generating an invoice.');
+  }
+
+  const revision = estimate.revisions?.find(
+    (item) => item.revisionNumber === estimate.currentRevision
+  );
+  if (!revision || revision.status !== 'Approved') {
+    throw new Error('The current approved estimate revision could not be found.');
+  }
+
+  return revision;
+}
+
+export function mapEstimateRevisionToInvoiceLines(revision) {
+  return {
+    parts: (revision.parts || []).map((part) => ({
+      part: part.part,
+      sku: part.sku,
+      name: part.name,
+      quantity: part.quantity,
+      isCustomerSupplied: part.isCustomerSupplied,
+      unitPriceMinor: part.unitPriceMinor,
+      unitCostMinor: part.unitCostMinor,
+    })),
+    labour: (revision.labour || []).map((labour) => ({
+      description: labour.description,
+      hours: labour.hours,
+      rateMinor: labour.rateMinor,
+      directLabourCostMinor: 0,
+    })),
+    discountMinor: Math.round(Number(revision.discountMinor || 0)),
+    taxEnabled: Boolean(revision.taxEnabled),
+    taxRatePercent: Number(revision.taxRatePercent || 0),
+  };
+}
+
 /**
  * Derive invoice status and remaining balance from grandTotalMinor and active payments.
  */
@@ -213,8 +251,6 @@ export function deriveInvoiceBalanceAndStatus(grandTotalMinor, payments = [], is
     status = 'Paid';
   } else if (paidMinor > 0 && paidMinor < grandTotalMinor) {
     status = 'Partially Paid';
-  } else if (grandTotalMinor === 0) {
-    status = 'Paid';
   }
 
   return {

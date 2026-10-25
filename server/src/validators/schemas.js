@@ -184,9 +184,6 @@ export const stockAdjustmentSchema = z.object({
 
 export const createInvoiceFromJobSchema = z.object({
   jobCardId: z.string().min(1),
-  discountLkr: z.coerce.number().min(0).default(0),
-  taxEnabled: z.boolean().optional(),
-  taxRatePercent: z.coerce.number().min(0).max(100).optional(),
   paymentTerms: z.string().optional().default('Due on receipt'),
   notes: z.string().optional().default(''),
 });

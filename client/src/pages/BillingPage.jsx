@@ -7,7 +7,6 @@ export function BillingPage() {
   const qc = useQueryClient();
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
   const [jobCardId, setJobCardId] = useState('');
-  const [discountLkr, setDiscountLkr] = useState(0);
   const [payAmountLkr, setPayAmountLkr] = useState('');
   const [payMethod, setPayMethod] = useState('Cash');
   const [msg, setMsg] = useState(null);
@@ -49,6 +48,17 @@ export function BillingPage() {
     onError: (err) => setMsg({ type: 'error', text: err.message }),
   });
 
+  const voidInvoiceMutation = useMutation({
+    mutationFn: ({ id, reason }) =>
+      apiRequest(`/api/billing/invoices/${id}/void`, { method: 'POST', body: { reason } }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['invoices', 'detail', selectedInvoiceId] });
+      setMsg({ type: 'success', text: `Invoice ${res.data.invoiceNumber} was voided for audit.` });
+    },
+    onError: (err) => setMsg({ type: 'error', text: err.message }),
+  });
+
   const inv = invoiceDetailRes?.data;
 
   return (
@@ -70,16 +80,13 @@ export function BillingPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            createInvoiceMutation.mutate({
-              jobCardId,
-              discountLkr: Number(discountLkr),
-            });
+            createInvoiceMutation.mutate({ jobCardId });
           }}
           className="bg-white rounded-xl p-5 shadow-sm border border-slate-200 space-y-3 h-fit"
         >
           <h3 className="text-base font-bold text-slate-900">Generate Invoice from Job Card</h3>
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Completed / Ready Job Card *</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Job Card with Approved Estimate *</label>
             <select
               required
               value={jobCardId}
@@ -94,16 +101,9 @@ export function BillingPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Discount (LKR)</label>
-            <input
-              type="number"
-              min="0"
-              value={discountLkr}
-              onChange={(e) => setDiscountLkr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
+          <p className="text-xs text-slate-500">
+            The invoice uses this job’s current approved estimate, including its descriptions, prices, discount, and tax.
+          </p>
           <button
             type="submit"
             disabled={createInvoiceMutation.isPending}
@@ -215,6 +215,23 @@ export function BillingPage() {
             </button>
           </div>
 
+          {inv.grandTotalMinor === 0 && !inv.isVoided && (
+            <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <span>This legacy invoice has a zero total. Void it with an audit reason before issuing a corrected invoice.</span>
+              <button
+                type="button"
+                disabled={voidInvoiceMutation.isPending}
+                onClick={() => {
+                  const reason = window.prompt('Reason for voiding this zero-total invoice:');
+                  if (reason?.trim()) voidInvoiceMutation.mutate({ id: inv._id, reason: reason.trim() });
+                }}
+                className="rounded bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {voidInvoiceMutation.isPending ? 'Voiding...' : 'Void zero-total invoice'}
+              </button>
+            </div>
+          )}
+
           {/* Printable A4 Header */}
           <div className="flex justify-between items-start border-b-2 border-navy-900 pb-4">
             <div>
@@ -231,6 +248,11 @@ export function BillingPage() {
             <div className="text-right">
               <h2 className="text-lg font-bold uppercase text-brandRed-600">Tax / Service Invoice</h2>
               <p className="text-sm font-mono font-bold">{inv.invoiceNumber}</p>
+              {inv.estimateNumber && (
+                <p className="text-xs text-slate-500">
+                  Estimate: {inv.estimateNumber} Rev #{inv.estimateRevision}
+                </p>
+              )}
               <p className="text-xs text-slate-500">Issued: {formatDateTimeLK(inv.createdAt)}</p>
               <p className="text-xs font-semibold mt-1">Status: {inv.status}</p>
             </div>

@@ -2,6 +2,7 @@ import express from 'express';
 import { Invoice } from '../models/Invoice.js';
 import { Payment } from '../models/Payment.js';
 import { JobCard } from '../models/JobCard.js';
+import { Estimate } from '../models/Estimate.js';
 import { Customer } from '../models/Customer.js';
 import { BusinessSettings } from '../models/BusinessSettings.js';
 import { AuditLog } from '../models/AuditLog.js';
@@ -13,6 +14,8 @@ import {
   toMinorUnits,
   calculateDocumentTotals,
   deriveInvoiceBalanceAndStatus,
+  getApprovedEstimateRevision,
+  mapEstimateRevisionToInvoiceLines,
   validatePaymentSubmission,
 } from '../utils/domainLogic.js';
 import { emitDomainEvent } from '../socket/socketManager.js';
@@ -78,51 +81,51 @@ router.post(
         const job = await JobCard.findById(parsed.jobCardId).session(session);
         if (!job) throw new Error('Job card not found');
 
+        const approvedEstimates = await Estimate.find({
+          jobCard: job._id,
+          status: 'Approved',
+        })
+          .sort({ 'approvalDetails.approvedAt': -1 })
+          .session(session);
+        const approvedEstimate = approvedEstimates.find((estimate) =>
+          estimate.revisions?.some(
+            (revision) =>
+              revision.revisionNumber === estimate.currentRevision && revision.status === 'Approved'
+          )
+        );
+        if (!approvedEstimate) {
+          if (approvedEstimates.length > 0) {
+            throw new Error('The current approved estimate revision could not be found.');
+          }
+          throw new Error('An approved estimate is required before generating an invoice.');
+        }
+        const approvedRevision = getApprovedEstimateRevision(approvedEstimate);
+        const approvedLines = mapEstimateRevisionToInvoiceLines(approvedRevision);
+
         const settings =
           (await BusinessSettings.findOne({ singletonKey: 'DEFAULT' }).session(session)) || {};
 
-        const invoiceNumber = await Counter.nextSequence('INVOICE', 'INV', 5, session);
-
-        // Build billable part lines from issued parts minus any returned quantities (preserves historical prices)
-        const billableParts = (job.issuedParts || [])
-          .map((ip) => ({
-            part: ip.part,
-            sku: ip.sku,
-            name: ip.name,
-            quantity: Number((ip.quantity - (ip.returnedQuantity || 0)).toFixed(2)),
-            isCustomerSupplied: ip.isCustomerSupplied,
-            unitPriceMinor: ip.unitPriceMinor,
-            unitCostMinor: ip.unitCostMinor,
-          }))
-          .filter((ip) => ip.quantity > 0);
-
-        const billableLabour = (job.labourCharges || []).map((lc) => ({
-          description: lc.description,
-          hours: lc.hours,
-          rateMinor: lc.rateMinor,
-          directLabourCostMinor: lc.directLabourCostMinor || 0,
-        }));
-
-        const taxEnabled =
-          parsed.taxEnabled !== undefined ? Boolean(parsed.taxEnabled) : Boolean(settings.taxEnabled);
-        const taxRatePercent =
-          parsed.taxRatePercent !== undefined
-            ? Number(parsed.taxRatePercent)
-            : Number(settings.taxRatePercent || 0);
-
         const totals = calculateDocumentTotals({
-          parts: billableParts,
-          labour: billableLabour,
-          discountMinor: toMinorUnits(parsed.discountLkr || 0),
-          taxEnabled,
-          taxRatePercent,
+          parts: approvedLines.parts,
+          labour: approvedLines.labour,
+          discountMinor: approvedLines.discountMinor,
+          taxEnabled: approvedLines.taxEnabled,
+          taxRatePercent: approvedLines.taxRatePercent,
         });
+        if (totals.grandTotalMinor <= 0) {
+          throw new Error('The approved estimate total must be greater than zero to generate an invoice.');
+        }
+
+        const invoiceNumber = await Counter.nextSequence('INVOICE', 'INV', 5, session);
 
         const [invoice] = await Invoice.create(
           [
             {
               invoiceNumber,
               jobCard: job._id,
+              estimate: approvedEstimate._id,
+              estimateNumber: approvedEstimate.estimateNumber,
+              estimateRevision: approvedEstimate.currentRevision,
               customer: job.customer,
               vehicle: job.vehicle,
               businessSnapshot: {
@@ -147,7 +150,7 @@ router.post(
               estimatedPartsCostMinor: totals.estimatedPartsCostMinor,
               directLabourCostMinor: totals.directLabourCostMinor,
               estimatedGrossProfitMinor: totals.estimatedGrossProfitMinor,
-              status: totals.grandTotalMinor === 0 ? 'Paid' : 'Unpaid',
+              status: 'Unpaid',
               paymentTerms: parsed.paymentTerms || 'Due on receipt',
               notes: parsed.notes || '',
               issuedBy: req.user._id,
@@ -162,8 +165,14 @@ router.post(
               action: 'INVOICE_ISSUED',
               entityType: 'Invoice',
               entityId: String(invoice._id),
-              summary: `Issued Invoice ${invoiceNumber} for Job ${job.jobNumber}`,
-              metadata: { invoiceNumber, jobNumber: job.jobNumber, grandTotalMinor: invoice.grandTotalMinor },
+              summary: `Issued Invoice ${invoiceNumber} from ${approvedEstimate.estimateNumber} Rev ${approvedEstimate.currentRevision} for Job ${job.jobNumber}`,
+              metadata: {
+                invoiceNumber,
+                jobNumber: job.jobNumber,
+                estimateNumber: approvedEstimate.estimateNumber,
+                estimateRevision: approvedEstimate.currentRevision,
+                grandTotalMinor: invoice.grandTotalMinor,
+              },
               performedBy: req.user._id,
               performedByName: req.user.name,
               performedByRole: req.user.role,

@@ -65,6 +65,18 @@ npm run build
 npm start
 ```
 
+### Invoicing Approved Estimates
+
+Invoices are generated from the job card's latest currently approved estimate revision. The approved item descriptions, quantities, prices, discount, and tax are copied into the invoice, and the estimate number/revision is recorded for audit. A new or changed estimate must be approved before it can be invoiced. Zero-total invoices are rejected.
+
+Before deploying this invoice behavior to an existing database, run the invoice index migration once using the production MongoDB URI configured in `server/.env`:
+
+```bash
+npm --prefix server run migrate:invoice-index
+```
+
+The migration replaces the old one-invoice-per-job unique index with a partial unique index that applies only to active invoices. This preserves voided invoices for audit while allowing a corrected invoice to be issued for that job. In the Billing page, open a legacy zero-total invoice and use **Void zero-total invoice**, entering a clear reason, before generating its replacement.
+
 ### Persistent Photo Upload Storage Requirement
 
 Inspection and vehicle damage photos are validated (JPEG/PNG/WebP, max 5 MB) and stored on disk at `UPLOAD_DIR` (defaults to `server/uploads`), while photo metadata is saved in MongoDB on the `JobCard` document. In production (Docker, VPS, or cloud VMs), mount `UPLOAD_DIR` onto a persistent volume or attached block storage so uploaded vehicle photos survive container redeployments.

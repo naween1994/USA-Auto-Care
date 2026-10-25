@@ -6,6 +6,8 @@ import {
   toMinorUnits,
   fromMinorUnits,
   calculateDocumentTotals,
+  getApprovedEstimateRevision,
+  mapEstimateRevisionToInvoiceLines,
   deriveInvoiceBalanceAndStatus,
   validatePaymentSubmission,
   validateJobStatusTransition,
@@ -115,13 +117,84 @@ test('2. Authoritative Server-Side Estimate & Invoice Calculations (LKR Minor Un
   });
 });
 
-test('3. Partial Payments, Balance Derivation & Overpayment Prevention', async () => {
+test('3. Invoice lines come from the current approved estimate revision', () => {
+  const estimate = {
+    status: 'Approved',
+    currentRevision: 2,
+    revisions: [
+      {
+        revisionNumber: 1,
+        status: 'Approved',
+        parts: [{ name: 'Old part', quantity: 1, unitPriceMinor: 1000 }],
+        labour: [],
+      },
+      {
+        revisionNumber: 2,
+        status: 'Approved',
+        parts: [
+          {
+            part: 'part-id',
+            sku: 'OIL-0W20',
+            name: 'Synthetic oil',
+            quantity: 1,
+            isCustomerSupplied: false,
+            unitPriceMinor: toMinorUnits(14500),
+            unitCostMinor: toMinorUnits(11800),
+          },
+        ],
+        labour: [
+          {
+            description: 'Periodic service labour',
+            hours: 1,
+            rateMinor: toMinorUnits(3500),
+          },
+        ],
+        discountMinor: toMinorUnits(500),
+        taxEnabled: false,
+        taxRatePercent: 0,
+      },
+    ],
+  };
+
+  const revision = getApprovedEstimateRevision(estimate);
+  const lines = mapEstimateRevisionToInvoiceLines(revision);
+  const totals = calculateDocumentTotals(lines);
+
+  assert.equal(revision.revisionNumber, 2);
+  assert.equal(lines.parts[0].name, 'Synthetic oil');
+  assert.equal(lines.labour[0].description, 'Periodic service labour');
+  assert.equal(fromMinorUnits(totals.grandTotalMinor), 17500);
+});
+
+test('An invoice source must be the current approved estimate revision', () => {
+  assert.throws(
+    () =>
+      getApprovedEstimateRevision({
+        status: 'Draft',
+        currentRevision: 1,
+        revisions: [{ revisionNumber: 1, status: 'Draft' }],
+      }),
+    /approved estimate is required/
+  );
+  assert.throws(
+    () =>
+      getApprovedEstimateRevision({
+        status: 'Approved',
+        currentRevision: 2,
+        revisions: [{ revisionNumber: 1, status: 'Approved' }],
+      }),
+    /current approved estimate revision/
+  );
+});
+
+test('4. Partial Payments, Balance Derivation & Overpayment Prevention', async () => {
   const grandTotalMinor = toMinorUnits(23000);
 
   // Initial unpaid state
   let state = deriveInvoiceBalanceAndStatus(grandTotalMinor, []);
   assert.equal(state.status, 'Unpaid');
   assert.equal(fromMinorUnits(state.balanceDueMinor), 23000);
+  assert.equal(deriveInvoiceBalanceAndStatus(0, []).status, 'Unpaid');
 
   // Record first partial payment of LKR 10,000
   const payment1 = {
@@ -158,7 +231,7 @@ test('3. Partial Payments, Balance Derivation & Overpayment Prevention', async (
   assert.equal(state.balanceDueMinor, 0);
 });
 
-test('4. Duplicate-Payment Prevention via Idempotency Keys', async () => {
+test('5. Duplicate-Payment Prevention via Idempotency Keys', async () => {
   const invoice = { grandTotalMinor: toMinorUnits(15000), isVoided: false };
   const existingPayments = [
     {
@@ -182,7 +255,7 @@ test('4. Duplicate-Payment Prevention via Idempotency Keys', async () => {
   assert.equal(check.payment.paymentNumber, 'PAY-2026-00001');
 });
 
-test('5. Concurrent Stock Consumption & Negative Stock Prevention', async () => {
+test('6. Concurrent Stock Consumption & Negative Stock Prevention', async () => {
   // Simulate atomic MongoDB findOneAndUpdate({ _id, quantityOnHand: { $gte: qty } }, { $inc: { quantityOnHand: -qty } })
   let stockDatabaseRecord = {
     sku: 'BRK-PAD-FR-AQUA',
@@ -208,7 +281,7 @@ test('5. Concurrent Stock Consumption & Negative Stock Prevention', async () => 
   assert.equal(stockDatabaseRecord.quantityOnHand, 1, 'Remaining stock must be 1 (never negative)');
 });
 
-test('6. Job-Status Validation, Quality Check Gate, and Cancellation Part Reconciliation', async (t) => {
+test('7. Job-Status Validation, Quality Check Gate, and Cancellation Part Reconciliation', async (t) => {
   await t.test('Blocks invalid status jumps (e.g. Checked In directly to Delivered)', () => {
     assert.throws(() => {
       validateJobStatusTransition({
